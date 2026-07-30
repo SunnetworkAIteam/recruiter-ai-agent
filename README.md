@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # RecruiterAI
 
 AI-powered recruitment platform: resume screening (Claude) → AI voice
@@ -82,3 +83,7 @@ job as part of Phase 4.
 - Commit messages: `<scope>: <what changed>`, e.g.
   `resume-scoring: add retry backoff for Claude rate limits`.
 
+=======
+# recruiter-ai-agent
+AI-powered recruitment platform - automated resume screening, real-time AI voice interviews with proctoring, and Claude-based candidate scoring. Built with Next.js, FastAPI, and Vapi. End-to-end pipeline from job posting to interview to hiring decision.
+>>>>>>> 03938b5b422b081480b16e106d4a60baa7d9b239
