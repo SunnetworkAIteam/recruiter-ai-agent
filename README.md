@@ -1,89 +1,80 @@
-<<<<<<< HEAD
 # RecruiterAI
 
 AI-powered recruitment platform: resume screening (Claude) → AI voice
-interviews (Vapi) → proctoring → recruiter dashboard.
+interviews (Vapi) → integrity proctoring → automated pipeline routing →
+recruiter dashboard.
 
-## Status: Phase 1, 2 & Frontend Batch 1 complete (this delivery)
+## Overview
 
-✅ **Phase 1 — Backend foundation**: project structure, env-driven config,
-structured logging, custom exception handling, DB models, Clerk auth
-middleware, Alembic migrations, Docker, test infrastructure.
+RecruiterAI automates the full early-stage hiring loop: a candidate
+applies to a job, their resume is scored by Claude, shortlisted
+candidates receive an interview invite, they complete a real spoken
+interview with an AI voice agent (camera on, proctored), the interview
+is scored, and the candidate is automatically routed to Shortlisted or
+Rejected based on their score — all visible on a live recruiter
+dashboard.
 
-✅ **Phase 2 — Resume scoring pipeline + Jobs/Candidates CRUD**: candidate
-application endpoint, resume parsing (PDF/DOCX) with strict validation,
-Claude-powered scoring with prompt-injection defense and cost controls,
-Supabase Storage integration, job posting CRUD, org-scoped candidate
-listing. 28 passing tests including two IDOR-prevention regression tests.
+## Phase 1 — Backend Foundation
 
-✅ **Frontend Batch 1 — Next.js dashboard**: Clerk auth, dark theme
-matching your reference design, Candidates page (live data + KPIs),
-Jobs page (live create/list/publish), public candidate application page,
-Analytics page (live hiring funnel + score distribution; honestly-labeled
-sample data for interview-dependent charts), Interviews page (honest
-empty state), Settings page (AI interviewer prompt UI scaffold).
-Production build verified clean — TypeScript strict mode + ESLint pass.
+Project structure, environment-driven configuration, structured JSON
+logging (with automatic secret redaction), a custom exception hierarchy
+mapped to proper HTTP status codes, database models, Clerk
+authentication middleware with org-scoped multi-tenancy, Alembic
+migrations, and test infrastructure.
 
-⬜ **Phase 3 — Vapi interview integration** (webhook handler, signature
-verification, transcript scoring) — next up. Unlocks: Interviews page,
-live "Interviews per Week" chart, working Settings save.
+## Phase 2 — Resume Scoring + Core Dashboard
 
-⬜ **Phase 4 — Proctoring event ingestion** (tab-switch/face-detection
-event logging feeding the Integrity Report). **Blocked on your consent-flow
-and data-retention decisions — see below.**
+- Candidate application endpoint with strict resume validation
+  (PDF/DOCX), rate limiting, and Claude-powered scoring with
+  prompt-injection defense
+- Job posting CRUD, org-scoped candidate listing and filtering
+- Supabase Storage integration for resumes
+- Next.js dashboard: Candidates page, Jobs page, public application
+  page, Analytics page (live hiring funnel and score distribution)
+- Automated interview-invite emails on shortlist, sent via Gmail SMTP
+  as an interim transport pending verified-domain email (Resend)
 
-⬜ **Phase 5 — Resend email automation**.
+## Phase 3 — AI Voice Interviews + Proctoring
 
-⬜ **Phase 6 — Koyeb deployment + CI**.
+- Full Vapi integration: adaptive AI voice interviewer, webhook
+  ingestion with signature verification, automatic transcript capture
+- Claude-based interview scoring (technical, communication, overall)
+- Real-time integrity monitoring: tab-switch detection, window-blur
+  detection, face-count monitoring (in-browser, only face counts are
+  ever sent to the backend — never frames or video), with automatic
+  call-ending after repeated violations and a scoring penalty applied
+  per violation
+- Automatic candidate routing: after an interview completes, the
+  candidate is moved to Shortlisted or Rejected based on a configurable
+  score threshold, with recruiters able to override any stage manually
+- Explicit, itemized candidate consent (camera, recording, monitoring)
+  required before any interview begins
+- Per-job candidate pipeline view: stage counts and full candidate
+  table (resume match, technical score, communication score, current
+  stage) for every job posting
 
-See `backend/README.md` and `frontend/README.md` for setup, testing, and
-deployment instructions specific to each.
+## Phase 4 — Production Hardening
 
-## Why phased, not all at once
+- Verified sending domain for transactional email (migrating off Gmail
+  SMTP once DNS access is available), removing the daily send-volume
+  cap and provider-side deliverability issues
+- Deployment to a stable, persistent hosting environment (replacing
+  local tunnel-based development), so webhook URLs no longer change on
+  every restart
+- Dark/light theme support across the full dashboard
+- Rate limiting, load testing, and monitoring for production traffic
+- Expanded interview scoring rubrics and structured per-role question
+  banks
 
-Each phase is independently reviewable and testable before the next one
-is built on top of it. This also means your 4 interns can each own a
-phase without stepping on each other's work — e.g. one intern could take
-Phase 3 (Vapi) while another starts on frontend interview-room UI once
-the API contract from Phase 3 exists.
+## Repository Conventions
 
-## Before Phase 3 (Vapi + proctoring): two decisions only you can make
-
-I did not make these calls for you because they're legal/product
-decisions, not engineering ones — but Phase 4 (proctoring) cannot start
-without them:
-
-1. **Consent flow copy and mechanism.** The `Candidate.consent_recording`
-   and `Candidate.consent_biometric_proctoring` fields exist in the schema
-   already, defaulted to `False`. You need an actual UI screen where the
-   candidate explicitly opts in — itemized ("we record video," "we detect
-   faces and eye movement," "we log tab switches"), not a bundled generic
-   checkbox — before they can start an interview. HireVue's 2019 BIPA
-   lawsuit (Illinois) is the cautionary example here; this is a real
-   exposure, not theoretical.
-
-2. **Data retention policy.** How long do you keep interview video and
-   proctoring event logs after a hiring decision is made? Who can request
-   deletion, and what's the process? This needs an answer before Phase 4
-   ships, because the deletion mechanism needs to be built into the
-   schema/storage design, not bolted on after you have real candidate
-   data sitting in Supabase.
-
-Bring me answers to both and we'll build the consent gate + retention
-job as part of Phase 4.
-
-## Repository conventions
-
-- Branch strategy: `feature/*` → `dev` → `main`, as you specified.
-- No PR merges to `dev` without tests passing (`pytest` in `backend/`,
-  `npm run build` in `frontend/`).
-- Every secret goes through environment variables — grep the codebase
-  before any commit if you're unsure (`git diff --staged | grep -i key`
-  is a cheap habit that prevents a leaked-secret incident).
+- Branch strategy: `feature/*` → `dev` → `main`
+- No merges to `dev` without tests passing (`pytest` in `backend/`,
+  `npm run build` in `frontend/`)
+- Every secret goes through environment variables — never commit `.env`
+  files or hardcoded keys
 - Commit messages: `<scope>: <what changed>`, e.g.
-  `resume-scoring: add retry backoff for Claude rate limits`.
+  `interview-scoring: add auto-routing based on score threshold`
 
-=======
-# recruiter-ai-agent
-AI-powered recruitment platform - automated resume screening, real-time AI voice interviews with proctoring, and Claude-based candidate scoring. Built with Next.js, FastAPI, and Vapi. End-to-end pipeline from job posting to interview to hiring decision.
->>>>>>> 03938b5b422b081480b16e106d4a60baa7d9b239
+See `backend/README.md` and `frontend/README.md` for setup, testing,
+and deployment instructions specific to each service.
