@@ -472,7 +472,7 @@ export default function InterviewRoomPage() {
           {faceBlocked && state === "active" && (
             <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-center px-6 z-10">
               <ShieldAlert className="w-8 h-8 text-amber mb-2" />
-              <p className="text-sm font-medium text-white">We can't see you</p>
+              <p className="text-sm font-medium text-white">We can&apos;t see you</p>
               <p className="text-xs text-ink-2 mt-1">
                 Please stay visible in the camera — the interview is paused and will resume automatically.
               </p>
