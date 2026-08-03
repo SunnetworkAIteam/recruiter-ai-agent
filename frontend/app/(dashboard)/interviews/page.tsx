@@ -23,7 +23,7 @@ const STATUS_STYLES: Record<string, string> = {
   failed: "bg-danger-dim text-danger",
 };
 
-function ScoreBadge({ score, label }: { score: number | null; label: string }) {
+function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="font-mono text-ink-2">—</span>;
   const color =
     score >= 80 ? "text-teal" : score >= 60 ? "text-amber" : "text-danger";
@@ -141,13 +141,13 @@ export default function InterviewsPage() {
                       {iv.job_title ?? "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <ScoreBadge score={iv.overall_score} label="Overall" />
+                      <ScoreBadge score={iv.overall_score}  />
                     </td>
                     <td className="px-4 py-3">
-                      <ScoreBadge score={iv.tech_score} label="Tech" />
+                      <ScoreBadge score={iv.tech_score}  />
                     </td>
                     <td className="px-4 py-3">
-                      <ScoreBadge score={iv.communication_score} label="Comm" />
+                      <ScoreBadge score={iv.communication_score}  />
                     </td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       {iv.transcript ? (
