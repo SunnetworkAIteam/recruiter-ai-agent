@@ -59,13 +59,17 @@ export interface InterviewPublic {
   vapi_assistant_id: string;
 }
 
+
 export interface InterviewDetail {
   id: string;
-  candidate_id: string;
-  status: InterviewStatus;
-  transcript: string | null;
+  status: string;
+  overall_score: number | null;
   tech_score: number | null;
   communication_score: number | null;
-  overall_score: number | null;
+  transcript: string | null;
   ai_report: string | null;
+  recording_url: string | null;
+  candidate_name: string | null;  // ← add
+  job_title: string | null;        // ← add
+  created_at: string;
 }
