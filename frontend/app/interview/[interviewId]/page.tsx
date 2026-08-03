@@ -7,6 +7,7 @@ import { Video, Mic, CheckCircle2, AlertTriangle, Loader2, PhoneOff, ShieldAlert
 import { apiFetch } from "@/lib/api";
 import type { InterviewPublic } from "@/types";
 
+
 type RoomState =
   | "loading"
   | "not_found"
@@ -15,6 +16,7 @@ type RoomState =
   | "connecting"
   | "active"
   | "ended"
+  | "incomplete"
   | "escalated"
   | "error";
 
@@ -32,6 +34,7 @@ export default function InterviewRoomPage() {
   const [interview, setInterview] = useState<InterviewPublic | null>(null);
   const [consentChecks, setConsentChecks] = useState({ camera: false, recording: false, monitoring: false });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [violationCount, setViolationCount] = useState(0);
   const [faceBlocked, setFaceBlocked] = useState(false);
 
 
@@ -41,6 +44,7 @@ export default function InterviewRoomPage() {
   const callStartRef = useRef<number>(0);
   const faceModelsLoadedRef = useRef(false);
   const lastFaceCountRef = useRef<number | null>(null);
+  const consecutiveNoFaceRef = useRef(0);
   const faceCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -83,6 +87,8 @@ export default function InterviewRoomPage() {
     };
   }, []);
 
+
+
   async function logEvent(eventType: string) {
     const offsetMs = Date.now() - callStartRef.current;
     try {
@@ -90,6 +96,7 @@ export default function InterviewRoomPage() {
         `/interviews/${params.interviewId}/events`,
         { method: "POST", body: { event_type: eventType, offset_ms: Math.max(0, offsetMs), metadata: {} } }
       );
+      setViolationCount(result.violation_count);
       if (result.escalate) {
         vapiRef.current?.stop();
         document.exitFullscreen?.().catch(() => {});
@@ -100,6 +107,8 @@ export default function InterviewRoomPage() {
       // live interview — swallow deliberately.
     }
   }
+
+
 
   // Passive proctoring: tab-switch / focus-loss detection.
   useEffect(() => {
@@ -137,30 +146,36 @@ export default function InterviewRoomPage() {
       if (!faceModelsLoadedRef.current || !videoRef.current) return;
       try {
         const faceapi = await import("face-api.js");
-        const detections = await faceapi.detectAllFaces(videoRef.current, new faceapi.TinyFaceDetectorOptions());
+        const detections = await faceapi.detectAllFaces(
+          videoRef.current,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 })
+        );
+
         const count = detections.length;
 
-        // Only log on a CHANGE from the last reading, so a candidate who
-        // is legitimately alone the whole time doesn't generate a
-        // violation every 4 seconds — only transitions count.
+        // Require 2 consecutive misses (~8s) before treating this as a
+        // real violation — a single dim-lighting or motion-blur frame
+        // shouldn't pause someone who's actually there.
+        if (count === 0) {
+          consecutiveNoFaceRef.current += 1;
+        } else {
+          consecutiveNoFaceRef.current = 0;
+        }
+        const isConfirmedNoFace = consecutiveNoFaceRef.current >= 2;
 
-
-        if (count !== lastFaceCountRef.current) {
-          lastFaceCountRef.current = count;
-          if (count === 0) {
-            logEvent("no_face_detected");
-            vapiRef.current?.setMuted(true);
-            setFaceBlocked(true);
-          } else {
-            if (faceBlocked) {
-              vapiRef.current?.setMuted(false);
-              setFaceBlocked(false);
-            }
-            if (count > 1) logEvent("multiple_faces");
-          }
+        if (isConfirmedNoFace && !faceBlocked) {
+          logEvent("no_face_detected");
+          vapiRef.current?.setMuted(true);
+          setFaceBlocked(true);
+        } else if (count > 0 && faceBlocked) {
+          vapiRef.current?.setMuted(false);
+          setFaceBlocked(false);
         }
 
-
+        if (count > 1 && count !== lastFaceCountRef.current) {
+          logEvent("multiple_faces");
+        }
+        lastFaceCountRef.current = count;
       } catch (err) {
         console.error("Face detection check failed", err);
       }
@@ -236,11 +251,30 @@ export default function InterviewRoomPage() {
         }).catch(() => {});
       }
     });
+
+
+
     vapi.on("call-end", () => {
-      setState("ended");
+      // Don't overwrite "escalated" — vapi.stop() (called when we
+      // force-end for integrity violations) triggers this same
+      // call-end event a moment later, which would otherwise silently
+      // replace the real reason with the generic "Interview complete"
+      // message.
+      const durationMs = Date.now() - callStartRef.current;
+      setState((prev) => {
+        if (prev === "escalated") return prev;
+        // Vapi doesn't expose an end reason on this event — a call
+        // that ends well short of the target duration (e.g. from
+        // prolonged silence/no answers) is treated as incomplete
+        // rather than a genuine finished interview.
+        return durationMs < 3 * 60 * 1000 ? "incomplete" : "ended";
+      });
       streamRef.current?.getTracks().forEach((t) => t.stop());
       document.exitFullscreen?.().catch(() => {});
     });
+
+   
+
     vapi.on("error", (err) => {
       console.error("Vapi error", err);
       setErrorMessage("The interview connection was interrupted. Please contact the recruiter if this persists.");
@@ -351,6 +385,24 @@ export default function InterviewRoomPage() {
     );
   }
 
+
+  if (state === "incomplete") {
+    return (
+      <Centered>
+        <Card>
+          <ShieldAlert className="w-8 h-8 text-danger mx-auto mb-3" />
+          <h1 className="text-lg font-bold text-ink mb-1">Interview ended</h1>
+          <p className="text-sm text-ink-2">
+            This interview was ended early due to prolonged inactivity or no response detected. This has
+            been flagged for the recruiting team to review manually — no automatic decision has been made
+            about your application.
+          </p>
+        </Card>
+      </Centered>
+    );
+  }
+
+
   if (state === "consent" && interview) {
     const allChecked = consentChecks.camera && consentChecks.recording && consentChecks.monitoring;
     return (
@@ -400,16 +452,23 @@ export default function InterviewRoomPage() {
         {/* Larger video — was max-w-md (small), now fills much more of the
             viewport so the candidate can actually see themselves clearly. */}
 
-        <div className="relative w-full max-w-3xl aspect-video rounded-card overflow-hidden border border-border bg-surface-2">
+        <div className="relative w-full max-w-5xl aspect-video rounded-card overflow-hidden border border-border bg-surface-2">
           <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
           <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 px-2.5 py-1.5 rounded-full text-xs text-white">
             <Video className="w-3.5 h-3.5" /> Camera on
           </div>
+
           {state === "active" && (
             <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-danger/90 px-2.5 py-1.5 rounded-full text-xs text-white">
               <Mic className="w-3.5 h-3.5" /> Live
             </div>
           )}
+          {state === "active" && violationCount > 0 && (
+            <div className="absolute top-12 right-3 flex items-center gap-1.5 bg-amber/90 px-2.5 py-1.5 rounded-full text-xs text-white">
+              <ShieldAlert className="w-3.5 h-3.5" /> {violationCount} violation{violationCount === 1 ? "" : "s"}
+            </div>
+          )}
+
           {faceBlocked && state === "active" && (
             <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-center px-6 z-10">
               <ShieldAlert className="w-8 h-8 text-amber mb-2" />

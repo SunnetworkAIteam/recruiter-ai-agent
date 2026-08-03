@@ -60,6 +60,14 @@ const config: Config = {
         sans: ["var(--font-inter)", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
       },
+
+      fontSize: {
+        sm: ["0.925rem", { lineHeight: "1.4rem" }],
+        base: ["1.0625rem", { lineHeight: "1.6rem" }],
+        lg: ["1.1875rem", { lineHeight: "1.75rem" }],
+        xl: ["1.3125rem", { lineHeight: "1.85rem" }],
+      },
+
       borderRadius: {
         card: "12px",
       },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Loader2, AlertTriangle, Copy, Check, Users } from "lucide-react";
+import { Plus, Loader2, AlertTriangle, Copy, Check, Users, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { JobStatusBadge } from "@/components/ui/Badge";
@@ -62,6 +62,18 @@ export default function JobsPage() {
     }
   }
 
+  async function handleDeleteJob(jobId: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm("Delete this job and all its candidates permanently? This cannot be undone.")) return;
+    try {
+      await call(`/jobs/${jobId}`, { method: "DELETE" });
+      refresh();
+    } catch {
+      alert("Failed to delete job.");
+    }
+  }
+
   return (
     <>
       <Topbar
@@ -94,20 +106,27 @@ export default function JobsPage() {
             <button onClick={() => setModalOpen(true)} className="text-accent-light hover:underline">
               Create your first one
             </button>
-            .
           </div>
         )}
 
         {!error && jobs !== null && jobs.length > 0 && (
           <div className="grid grid-cols-2 gap-4">
             {jobs.map((job) => (
-              <div key={job.id} className="card p-4">
+              <Link key={job.id} href={`/jobs/${job.id}`} className="card p-4 block hover:border-border-2 transition-colors">
                 <div className="flex items-start justify-between mb-2">
-                  <Link href={`/jobs/${job.id}`} className="hover:underline">
-                    <h3 className="text-sm font-bold text-ink">{job.title}</h3>
-                  </Link>
-                  <JobStatusBadge status={job.status} />
+                  <h3 className="text-sm font-bold text-ink">{job.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <JobStatusBadge status={job.status} />
+                    <button
+                      onClick={(e) => handleDeleteJob(job.id, e)}
+                      aria-label={`Delete ${job.title}`}
+                      className="text-ink-3 hover:text-danger transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
+
                 <p className="text-xs text-ink-2 line-clamp-2 mb-3">{job.description}</p>
                 {job.required_skills && (
                   <div className="flex flex-wrap gap-1.5 mb-3">
@@ -141,7 +160,7 @@ export default function JobsPage() {
                     <ApplyLinkButton jobId={job.id} />
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

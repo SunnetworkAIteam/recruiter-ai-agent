@@ -12,6 +12,7 @@
     "@clerk/nextjs": "^5.7.6",
     "@vapi-ai/web": "^2.6.1",
     "clsx": "^2.1.1",
+    "encoding": "^0.1.13",
     "face-api.js": "^0.22.2",
     "lucide-react": "^1.25.0",
     "next": "14.2.35",
@@ -29,5 +30,9 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "@clerk/shared@2.9.2": true,
+    "unrs-resolver@1.12.2": true
   }
 }

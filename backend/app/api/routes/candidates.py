@@ -212,6 +212,7 @@ def list_candidates(
         for candidate, job_title, score in rows
     ]
 
+
 @router.get("/stage-counts")
 def get_candidate_stage_counts(
     job_id: str,
@@ -219,49 +220,46 @@ def get_candidate_stage_counts(
     user: AuthenticatedUser = Depends(require_org_membership),
 ):
     """
-    Pipeline stat-card counts for a single job's candidates — powers the
-    stage summary at the top of the job detail page (Uploaded/Screened/
-    Shortlisted/Interviewing/Rejected/Hired). Same org-scoping as
-    list_candidates above.
+    Pipeline stat-card counts for a single job's candidates — cumulative,
+    not "currently sitting at this exact stage." A candidate who's been
+    interviewed still counts toward Uploaded and Screened, since they
+    genuinely passed through those steps — stage is mutually-exclusive
+    on the model, but the funnel view needs "reached this far or beyond."
     """
-    rows = (
-        db.query(Candidate.stage, func.count(Candidate.id))
+    candidates = (
+        db.query(Candidate)
         .join(Job, Job.id == Candidate.job_id)
         .filter(Job.owner_org_id == user.org_id, Candidate.job_id == job_id)
-        .group_by(Candidate.stage)
         .all()
     )
-    counts = {stage.value: 0 for stage in CandidateStage}
-    for stage, count in rows:
-        counts[stage] = count
+    interviewed_candidate_ids = {
+        row[0]
+        for row in db.query(Interview.candidate_id)
+        .join(Candidate, Candidate.id == Interview.candidate_id)
+        .filter(Candidate.job_id == job_id, Interview.transcript.isnot(None))
+        .all()
+    }
+
+    reached_shortlist_or_beyond = {
+        CandidateStage.SHORTLISTED,
+        CandidateStage.INTERVIEW_SCHEDULED,
+        CandidateStage.INTERVIEWED,
+        CandidateStage.REJECTED,
+        CandidateStage.HIRED,
+    }
+
+    counts = {
+        "uploaded": len(candidates),
+        "screened": sum(1 for c in candidates if c.resume_score is not None),
+        "shortlisted": sum(1 for c in candidates if c.stage in reached_shortlist_or_beyond),
+        "interview_scheduled": sum(1 for c in candidates if c.stage == CandidateStage.INTERVIEW_SCHEDULED),
+        "interviewed": sum(1 for c in candidates if c.id in interviewed_candidate_ids),
+        "rejected": sum(1 for c in candidates if c.stage == CandidateStage.REJECTED),
+        "hired": sum(1 for c in candidates if c.stage == CandidateStage.HIRED),
+    }
     return counts
 
 
-@router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_candidate(
-    candidate_id: str,
-    db: Session = Depends(get_db),
-    user: AuthenticatedUser = Depends(require_org_membership),
-):
-    """
-    Org-scoped hard delete. Cascades to ResumeScore/Interview/InterviewEvent
-    rows via the FK ondelete="CASCADE" already defined on those models —
-    deleting a candidate cleanly removes their scoring and interview
-    history too, not orphaned rows. Does NOT delete the resume file from
-    Supabase Storage yet (noted as a follow-up, not silently skipped).
-    """
-    candidate = (
-        db.query(Candidate)
-        .join(Job, Job.id == Candidate.job_id)
-        .filter(Candidate.id == candidate_id, Job.owner_org_id == user.org_id)
-        .first()
-    )
-    if candidate is None:
-        raise ResourceNotFoundError("Candidate not found")
-
-    db.delete(candidate)
-    db.commit()
-    return None
 
 
 @router.get("/{candidate_id}/audit-log", response_model=list[DecisionLogEntry])

@@ -122,3 +122,24 @@ def get_job_public(job_id: str, db: Session = Depends(get_db)):
         "required_skills": job.required_skills,
         "min_years_experience": job.min_years_experience,
     }
+
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    user: AuthenticatedUser = Depends(require_org_membership),
+):
+    """
+    Org-scoped hard delete. Cascades to Candidate rows (and, through
+    them, ResumeScore/Interview/InterviewEvent) via the FK
+    ondelete="CASCADE" already defined on Candidate.job_id — deleting a
+    job permanently removes every candidate who applied to it, not just
+    the job posting itself.
+    """
+    job = db.query(Job).filter(Job.id == job_id, Job.owner_org_id == user.org_id).first()
+    if job is None:
+        raise ResourceNotFoundError("Job not found")
+    db.delete(job)
+    db.commit()

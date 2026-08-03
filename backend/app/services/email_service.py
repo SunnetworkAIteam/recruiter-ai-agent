@@ -63,22 +63,21 @@ def send_interview_invite(
       <h2 style="margin-bottom: 4px;">You've been shortlisted!</h2>
       <p>Hi {candidate_name},</p>
       <p>
-        Thank you for applying to the <strong>{job_title}</strong> role at {company_name}. We were
-        impressed by your background and would like to invite you to the next step: a short
-        AI-guided voice interview, about 10&ndash;15 minutes, completed on your own schedule.
+        Thank you for your interest in the <strong>{job_title}</strong> position at <strong>{company_name}</strong>
+        After reviewing your application, we would like to invite you to the next stage of our hiring process.  
+        As part of this initial screening, you'll complete a 10–15 minute AI interview. 
+        This interview is designed to help us better understand your background, experience, communication skills, and overall suitability for the role. 
+        You may complete the interview at your convenience before the interview link expires.
       </p>
-      <p><strong>What to expect:</strong></p>
+
+      <p><strong>Before you begin, please ensure you have:</strong></p>
       <ul>
-        <li>You'll speak with an AI interviewer that asks about your experience and background</li>
-        <li>Your camera stays on for the full interview to verify identity</li>
-        <li>Takes 10&ndash;15 minutes, no scheduling needed &mdash; start when you're ready</li>
-      </ul>
-      <p><strong>Before you start, make sure you have:</strong></p>
-      <ul>
-        <li>A quiet space with a working camera and microphone</li>
+        <li>A quiet environment with minimal distractions</li>
+        <li>A device with a working camera and microphone</li>
         <li>A stable internet connection</li>
         <li>About 15 uninterrupted minutes</li>
       </ul>
+
       <p style="margin: 24px 0;">
         <a href="{interview_url}"
            style="background:#5B5FEF; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600;">
@@ -104,8 +103,7 @@ def send_interview_followup(
       <p>Hi {candidate_name},</p>
       <p>
         Thanks for completing your interview for the <strong>{job_title}</strong> role
-        at {company_name}. Our team is reviewing your interview along with the rest
-        of your application, and we'll be in touch with next steps soon.
+        at {company_name}. Our team is reviewing your application, and we will be in touch with you regarding the next steps soon.
       </p>
       <p>We appreciate the time you took to speak with us.</p>
     </div>

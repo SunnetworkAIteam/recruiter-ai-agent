@@ -1,64 +1,100 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
-import { Loader2, AlertTriangle, Info } from "lucide-react";
+import { BarChart, Bar, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { Loader2, AlertTriangle, Download } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { useApi } from "@/lib/useApi";
 import { ApiError } from "@/lib/api";
-import type { CandidateDetail, CandidateStage } from "@/types";
+import type { CandidateDetail, Job } from "@/types";
 
-const FUNNEL_STAGES: { stage: CandidateStage; label: string; color: string }[] = [
-  { stage: "applied", label: "Applied", color: "#3B82F6" },
-  { stage: "screened", label: "Screened", color: "#8B5CF6" },
-  { stage: "shortlisted", label: "Shortlisted", color: "#F59E0B" },
-  { stage: "interview_scheduled", label: "Interview Scheduled", color: "#5B5FEF" },
-  { stage: "interviewed", label: "Interviewed", color: "#00C9A7" },
-  { stage: "hired", label: "Hired", color: "#00C9A7" },
+// Cumulative funnel: a candidate who's Rejected still counts toward
+// Uploaded/Screened/Shortlisted/Interviewed, since they genuinely passed
+// through those steps. Stage is mutually-exclusive on the model, but the
+// funnel needs "reached this far or beyond," same fix as the per-job
+// pipeline page.
+const FUNNEL_STAGES = [
+  { key: "uploaded", label: "Uploaded" },
+  { key: "screened", label: "Screened" },
+  { key: "shortlisted", label: "Email Sent" },
+  { key: "interviewed", label: "Interviewed" },
+  { key: "rejected", label: "Rejected" },
+  { key: "hired", label: "Shortlisted" },
 ];
 
-// Placeholder shape only — clearly labeled in the UI as sample data.
-// Replaces itself with real numbers once Phase 3 (Vapi interviews) is
-// wired up and interview records start accumulating.
-const SAMPLE_INTERVIEWS_PER_WEEK = [
-  { week: "Wk 1", interviews: 4 },
-  { week: "Wk 2", interviews: 7 },
-  { week: "Wk 3", interviews: 5 },
-  { week: "Wk 4", interviews: 9 },
-  { week: "Wk 5", interviews: 6 },
-];
+function reachedStage(c: CandidateDetail, key: string): boolean {
+  const beyondScreened = new Set(["shortlisted", "interview_scheduled", "interviewed", "rejected", "hired"]);
+  const beyondShortlisted = new Set(["interview_scheduled", "interviewed", "rejected", "hired"]);
+  switch (key) {
+    case "uploaded":
+      return true;
+    case "screened":
+      return c.tech_score !== null || c.communication_score !== null || c.role_match_score !== null;
+    case "shortlisted":
+      return beyondScreened.has(c.stage);
+    case "interviewed":
+      return beyondShortlisted.has(c.stage) || c.stage === "rejected" || c.stage === "hired";
+    case "rejected":
+      return c.stage === "rejected";
+    case "hired":
+      return c.stage === "hired";
+    default:
+      return false;
+  }
+}
 
-function SampleDataNote() {
-  return (
-    <div className="flex items-center gap-1.5 text-[11px] text-amber bg-amber-dim px-2 py-1 rounded-full w-fit mb-3">
-      <Info className="w-3 h-3" />
-      Sample data — connects live once interviews launch
-    </div>
-  );
+function downloadCsv(candidates: CandidateDetail[]) {
+  const headers = ["Name", "Email", "Job", "Stage", "Resume Match %", "Tech %", "Comm %"];
+  const rows = candidates.map((c) => [
+    c.full_name,
+    c.email,
+    c.job_title,
+    c.stage,
+    c.role_match_score ?? "",
+    c.tech_score ?? "",
+    c.communication_score ?? "",
+  ]);
+  const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `recruiter-ai-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function AnalyticsPage() {
   const { call } = useApi();
   const [candidates, setCandidates] = useState<CandidateDetail[] | null>(null);
+  const [jobs, setJobs] = useState<Job[] | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    call<CandidateDetail[]>("/candidates")
-      .then(setCandidates)
+    Promise.all([call<CandidateDetail[]>("/candidates"), call<Job[]>("/jobs")])
+      .then(([c, j]) => {
+        setCandidates(c);
+        setJobs(j);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load analytics data."));
   }, [call]);
 
-  const funnelData = useMemo(() => {
+  const filtered = useMemo(() => {
     const list = candidates ?? [];
-    return FUNNEL_STAGES.map((s) => ({
-      label: s.label,
-      count: list.filter((c) => c.stage === s.stage).length,
-      color: s.color,
-    }));
-  }, [candidates]);
+    return selectedJobId === "all" ? list : list.filter((c) => c.job_id === selectedJobId);
+  }, [candidates, selectedJobId]);
+
+  const funnelData = useMemo(() => {
+    const total = filtered.length || 1;
+    return FUNNEL_STAGES.map((s) => {
+      const count = filtered.filter((c) => reachedStage(c, s.key)).length;
+      return { ...s, count, pct: Math.round((count / total) * 100) };
+    });
+  }, [filtered]);
 
   const scoreDistribution = useMemo(() => {
-    const scored = (candidates ?? []).filter((c) => c.role_match_score !== null);
+    const scored = filtered.filter((c) => c.role_match_score !== null);
     const buckets = [
       { label: "0-40%", min: 0, max: 40 },
       { label: "40-60%", min: 40, max: 60 },
@@ -69,11 +105,48 @@ export default function AnalyticsPage() {
       label: b.label,
       count: scored.filter((c) => (c.role_match_score ?? 0) >= b.min && (c.role_match_score ?? 0) < b.max).length,
     }));
-  }, [candidates]);
+  }, [filtered]);
+
+  const kpis = useMemo(() => {
+    const total = filtered.length;
+    const scored = filtered.filter((c) => c.role_match_score !== null);
+    const avgMatch = scored.length
+      ? Math.round(scored.reduce((sum, c) => sum + (c.role_match_score ?? 0), 0) / scored.length)
+      : null;
+    const hired = filtered.filter((c) => c.stage === "hired").length;
+    const shortlisted = filtered.filter((c) => reachedStage(c, "shortlisted")).length;
+    const conversionRate = total ? Math.round((hired / total) * 100) : 0;
+    return { total, avgMatch, shortlisted, conversionRate };
+  }, [filtered]);
+
+  const perRole = useMemo(() => {
+    if (!jobs) return [];
+    return jobs.map((job) => {
+      const jobCandidates = (candidates ?? []).filter((c) => c.job_id === job.id);
+      const interviewed = jobCandidates.filter((c) => reachedStage(c, "interviewed")).length;
+      const hired = jobCandidates.filter((c) => c.stage === "hired").length;
+      const scored = jobCandidates.filter((c) => c.role_match_score !== null);
+      const avgMatch = scored.length
+        ? Math.round(scored.reduce((sum, c) => sum + (c.role_match_score ?? 0), 0) / scored.length)
+        : null;
+      const hireRate = interviewed ? Math.round((hired / interviewed) * 100) : 0;
+      return { job, interviewed, hireRate, avgMatch };
+    });
+  }, [jobs, candidates]);
 
   return (
     <>
-      <Topbar title="Analytics" />
+      <Topbar
+        title="Analytics"
+        actions={
+          candidates && (
+            <button onClick={() => downloadCsv(filtered)} className="btn-secondary">
+              <Download className="w-4 h-4" />
+              Export Report
+            </button>
+          )
+        }
+      />
       <main className="flex-1 overflow-y-auto p-6">
         {error && (
           <div className="flex items-center gap-2 text-danger text-sm card p-6 mb-4">
@@ -91,31 +164,83 @@ export default function AnalyticsPage() {
 
         {!error && candidates !== null && (
           <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedJobId}
+                onChange={(e) => setSelectedJobId(e.target.value)}
+                className="input-field w-64"
+              >
+                <option value="all">All Roles</option>
+                {(jobs ?? []).map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4">
+              <div className="card p-4">
+                <div className="text-xs text-ink-2 mb-1">Total Candidates</div>
+                <div className="text-2xl font-extrabold text-ink">{kpis.total}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs text-ink-2 mb-1">Avg Match Score</div>
+                <div className="text-2xl font-extrabold text-ink">{kpis.avgMatch !== null ? `${kpis.avgMatch}%` : "—"}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs text-ink-2 mb-1">Shortlisted</div>
+                <div className="text-2xl font-extrabold text-ink">{kpis.shortlisted}</div>
+              </div>
+              <div className="card p-4">
+                <div className="text-xs text-ink-2 mb-1">Conversion Rate</div>
+                <div className="text-2xl font-extrabold text-ink">{kpis.conversionRate}%</div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="text-lg font-bold text-ink mb-4">Recruitment Funnel</div>
+              <div className="space-y-4">
+                {funnelData.map((s) => (
+                  <div key={s.key}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-ink font-medium">{s.label}</span>
+                      <span className="text-ink-2">
+                        {s.count} ({s.pct}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-surface-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-danger via-amber to-teal"
+                        style={{ width: `${s.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="card p-4">
-                <div className="text-sm font-bold text-ink mb-0.5">Hiring Funnel</div>
-                <div className="text-xs text-ink-2 mb-4">Live — full pipeline from your candidate data</div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={funnelData} layout="vertical" margin={{ left: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#232840" horizontal={false} />
-                    <XAxis type="number" stroke="#4A4E65" fontSize={11} allowDecimals={false} />
-                    <YAxis type="category" dataKey="label" stroke="#8B8FA8" fontSize={11} width={110} />
-                    <Tooltip
-                      contentStyle={{ background: "#161B2E", border: "1px solid #232840", borderRadius: 8, fontSize: 12 }}
-                      cursor={{ fill: "#161B2E" }}
-                    />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                      {funnelData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="text-sm font-bold text-ink mb-4">Performance by Role</div>
+                <div className="space-y-3">
+                  {perRole.map(({ job, interviewed, hireRate, avgMatch }) => (
+                    <div key={job.id} className="flex items-center justify-between border-t border-border pt-3 first:border-t-0 first:pt-0">
+                      <div>
+                        <div className="text-sm font-medium text-ink">{job.title}</div>
+                        <div className="text-xs text-ink-2">
+                          {interviewed} interview{interviewed === 1 ? "" : "s"} · Hire rate: {hireRate}%
+                        </div>
+                      </div>
+                      <div className="text-lg font-bold text-ink">{avgMatch !== null ? `${avgMatch}%` : "—"}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="card p-4">
                 <div className="text-sm font-bold text-ink mb-0.5">Match Score Distribution</div>
-                <div className="text-xs text-ink-2 mb-4">Live — resume-screened candidates only</div>
+                <div className="text-xs text-ink-2 mb-4">Resume-screened candidates only</div>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={scoreDistribution} margin={{ left: -20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#232840" vertical={false} />
@@ -129,23 +254,6 @@ export default function AnalyticsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-
-            <div className="card p-4">
-              <div className="text-sm font-bold text-ink mb-0.5">Interviews per Week</div>
-              <SampleDataNote />
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={SAMPLE_INTERVIEWS_PER_WEEK} margin={{ left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#232840" vertical={false} />
-                  <XAxis dataKey="week" stroke="#8B8FA8" fontSize={11} />
-                  <YAxis stroke="#4A4E65" fontSize={11} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: "#161B2E", border: "1px solid #232840", borderRadius: 8, fontSize: 12 }}
-                    cursor={{ fill: "#161B2E" }}
-                  />
-                  <Bar dataKey="interviews" fill="#00C9A7" radius={[4, 4, 0, 0]} opacity={0.55} />
-                </BarChart>
-              </ResponsiveContainer>
             </div>
           </div>
         )}
