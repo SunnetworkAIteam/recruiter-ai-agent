@@ -34,7 +34,7 @@ export default function InterviewRoomPage() {
   const [interview, setInterview] = useState<InterviewPublic | null>(null);
   const [consentChecks, setConsentChecks] = useState({ camera: false, recording: false, monitoring: false });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [violationCount, setViolationCount] = useState(0);
+  const [violationCount, setViolationCount] = useState<number>(0);
   const [faceBlocked, setFaceBlocked] = useState(false);
 
 
@@ -161,7 +161,7 @@ export default function InterviewRoomPage() {
         } else {
           consecutiveNoFaceRef.current = 0;
         }
-        const isConfirmedNoFace = consecutiveNoFaceRef.current >= 2;
+        const isConfirmedNoFace = consecutiveNoFaceRef.current >= 4;
 
         if (isConfirmedNoFace && !faceBlocked) {
           logEvent("no_face_detected");
@@ -363,7 +363,7 @@ export default function InterviewRoomPage() {
           <p className="text-sm text-ink-2">
             This interview was ended automatically after multiple integrity signals were detected (such as
             switching away from this tab or camera anomalies). This has been flagged for the recruiting team
-            to review manually — no automatic decision has been made about your application.
+            to review manually, no automatic decision has been made about your application.
           </p>
         </Card>
       </Centered>
@@ -464,8 +464,8 @@ export default function InterviewRoomPage() {
             </div>
           )}
           {state === "active" && violationCount > 0 && (
-            <div className="absolute top-12 right-3 flex items-center gap-1.5 bg-amber/90 px-2.5 py-1.5 rounded-full text-xs text-white">
-              <ShieldAlert className="w-3.5 h-3.5" /> {violationCount} violation{violationCount === 1 ? "" : "s"}
+            <div className="absolute top-12 right-3 flex items-center gap-1.5 bg-amber-500/90 px-2.5 py-1.5 rounded-full text-xs text-white animate-pulse">
+              <ShieldAlert className="w-3.5 h-3.5" /> {violationCount} violation{violationCount === 1 ? "" : "s"} detected
             </div>
           )}
 

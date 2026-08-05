@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     # choice with real consequences (see decision_log entries tagged
     # "auto_invite_threshold" for the audit trail of every automatic
     # decision this setting causes) — not a default to leave unexamined.
-    AUTO_INVITE_SCORE_THRESHOLD: int = 60
+    AUTO_INVITE_SCORE_THRESHOLD: int = 50
 
     # Real display name shown to candidates (emails, interview room) —
     # NOT the Clerk org_id. Using the raw org_id here was a real bug:
@@ -106,19 +106,28 @@ class Settings(BaseSettings):
     # reject the candidate — a human still makes the hiring call — but
     # it does stop the interview immediately rather than let it continue.
 
-    MAX_INTEGRITY_VIOLATIONS: int = 3
+
+    # Only counts genuine integrity violations (tab_switch, window_blur,
+    # multiple_faces) toward auto-escalation. no_face_detected is tracked
+    # separately with its own, much higher threshold — camera/lighting
+    # hiccups shouldn't end an interview the same way deliberately
+    # switching tabs does.
+    MAX_INTEGRITY_VIOLATIONS: int = 6
+    MAX_NO_FACE_VIOLATIONS: int = 10
+
+    
     # Points deducted from overall_score per logged violation, applied
     # when the transcript is scored. Configurable, not hardcoded — you
     # may want a harsher or lighter penalty later without a code change.
-    VIOLATION_SCORE_DEDUCTION: int = 5
-    AUTO_SHORTLIST_SCORE_THRESHOLD: int = 70
+    VIOLATION_SCORE_DEDUCTION: int = 2
+    AUTO_SHORTLIST_SCORE_THRESHOLD: int = 50
 
     VAPI_API_BASE_URL: str = "https://api.vapi.ai"
 
     # How often the background job checks Vapi for completed interviews
     # that haven't synced yet. This is what replaces manually clicking
     # "Sync from Vapi" — it now runs automatically in the background.
-    BACKGROUND_SYNC_INTERVAL_SECONDS: int = 30
+    BACKGROUND_SYNC_INTERVAL_SECONDS: int = 10
 
     # --- Resend (Email) ---
     # Optional now — email currently sends via Gmail SMTP (see

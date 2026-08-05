@@ -321,6 +321,7 @@ def log_interview_event(request: Request, interview_id: str, payload: InterviewE
     if interview is None:
         raise ResourceNotFoundError("Interview not found")
 
+
     event = InterviewEvent(
         interview_id=interview.id,
         event_type=payload.event_type,
@@ -330,19 +331,27 @@ def log_interview_event(request: Request, interview_id: str, payload: InterviewE
     db.add(event)
     db.flush()
 
-    violation_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
+    total_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
+    no_face_count = (
+        db.query(InterviewEvent)
+        .filter(InterviewEvent.interview_id == interview.id, InterviewEvent.event_type == "no_face_detected")
+        .count()
+    )
+    real_violation_count = total_count - no_face_count
 
     escalate = False
-    if violation_count >= settings.MAX_INTEGRITY_VIOLATIONS and interview.status not in (
-        InterviewStatus.COMPLETED,
-        InterviewStatus.ABANDONED,
-    ):
+    if (
+        real_violation_count >= settings.MAX_INTEGRITY_VIOLATIONS
+        or no_face_count >= settings.MAX_NO_FACE_VIOLATIONS
+    ) and interview.status not in (InterviewStatus.COMPLETED, InterviewStatus.ABANDONED):
         escalate = True
         interview.status = InterviewStatus.ABANDONED
         interview.ai_report = (
-            f"Interview auto-ended after {violation_count} integrity violations were logged "
-            f"(tab switches, focus loss, or camera anomalies). Flagged for recruiter review — "
-            f"no automated hire/reject decision was made."
+            f"Interview auto-ended after {real_violation_count} integrity violation(s) "
+            f"(tab switches or focus loss) and {no_face_count} camera-visibility event(s) were logged. "
+            f"Flagged for recruiter review â€” "
+
+    
         )
         record_decision(
             db,
