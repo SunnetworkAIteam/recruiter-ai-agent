@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<string, string> = {
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="font-mono text-ink-2">—</span>;
   const color =
-    score >= 80 ? "text-teal" : score >= 60 ? "text-amber" : "text-danger";
+    score >= 60 ? "text-teal" : score >= 50 ? "text-amber" : "text-danger";
   return (
     <span className={`font-mono font-semibold ${color}`}>{score}%</span>
   );

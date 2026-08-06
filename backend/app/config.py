@@ -78,9 +78,11 @@ class Settings(BaseSettings):
     VAPI_ASSISTANT_ID: str = Field(..., description="Default Vapi assistant ID for interviews")
     # HireVue defaults to 3 days and their own forums show recruiters
     # constantly re-sending links because candidates miss that window —
-    # 7 days is a more forgiving default. Configurable, not hardcoded,
+    # 5 days is a more forgiving default. Configurable, not hardcoded,
     # since this is a product/ops decision that may change.
-    INTERVIEW_LINK_EXPIRY_DAYS: int = 7
+    INTERVIEW_LINK_EXPIRY_DAYS: int = 5
+
+    REMINDER_INTERVAL_DAYS: int = 2
 
     # Automatically send an interview invite when a candidate's resume
     # role_match_score meets or exceeds this threshold — no recruiter
@@ -112,14 +114,14 @@ class Settings(BaseSettings):
     # separately with its own, much higher threshold — camera/lighting
     # hiccups shouldn't end an interview the same way deliberately
     # switching tabs does.
-    MAX_INTEGRITY_VIOLATIONS: int = 6
-    MAX_NO_FACE_VIOLATIONS: int = 10
+    MAX_INTEGRITY_VIOLATIONS: int = 4
+    MAX_NO_FACE_VIOLATIONS: int = 2
 
     
     # Points deducted from overall_score per logged violation, applied
     # when the transcript is scored. Configurable, not hardcoded — you
     # may want a harsher or lighter penalty later without a code change.
-    VIOLATION_SCORE_DEDUCTION: int = 2
+    VIOLATION_SCORE_DEDUCTION: int = 3
     AUTO_SHORTLIST_SCORE_THRESHOLD: int = 50
 
     VAPI_API_BASE_URL: str = "https://api.vapi.ai"

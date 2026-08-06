@@ -35,6 +35,8 @@ export default function InterviewRoomPage() {
   const [consentChecks, setConsentChecks] = useState({ camera: false, recording: false, monitoring: false });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [violationCount, setViolationCount] = useState<number>(0);
+  const [violationMessage, setViolationMessage] = useState<string | null>(null);
+  const [lastViolationMessage, setLastViolationMessage] = useState<string | null>(null);
   const [faceBlocked, setFaceBlocked] = useState(false);
 
 
@@ -89,24 +91,38 @@ export default function InterviewRoomPage() {
 
 
 
+  const VIOLATION_LABELS: Record<string, string> = {
+    tab_switch: "Tab switch detected",
+    window_blur: "Window lost focus",
+    fullscreen_exit: "Exited fullscreen",
+    multiple_faces: "Multiple people detected",
+    no_face_detected: "Camera view lost",
+  };
+
   async function logEvent(eventType: string) {
     const offsetMs = Date.now() - callStartRef.current;
     try {
-      const result = await apiFetch<{ escalate: boolean; violation_count: number }>(
-        `/interviews/${params.interviewId}/events`,
-        { method: "POST", body: { event_type: eventType, offset_ms: Math.max(0, offsetMs), metadata: {} } }
-      );
-      setViolationCount(result.violation_count);
+      const result = await apiFetch<{
+        escalate: boolean;
+        violation_count: number;
+        no_face_count: number;
+        event_type: string;
+      }>(`/interviews/${params.interviewId}/events`, {
+        method: "POST",
+        body: { event_type: eventType, offset_ms: Math.max(0, offsetMs), metadata: {} },
+      });
+      setViolationCount(result.violation_count + result.no_face_count);
+      setLastViolationMessage(VIOLATION_LABELS[result.event_type] ?? "Activity signal detected");
+      setTimeout(() => setLastViolationMessage(null), 4000);
       if (result.escalate) {
-        vapiRef.current?.stop();
-        document.exitFullscreen?.().catch(() => {});
-        setState("escalated");
-      }
-    } catch {
-      // A failed proctoring-log call must never interrupt the candidate's
-      // live interview — swallow deliberately.
+      vapiRef.current?.stop();
+      document.exitFullscreen?.().catch(() => {});
+      setState("escalated");
     }
+  } catch {
+    // swallow
   }
+}
 
 
 
@@ -172,19 +188,35 @@ export default function InterviewRoomPage() {
           setFaceBlocked(false);
         }
 
-        if (count > 1 && count !== lastFaceCountRef.current) {
-          logEvent("multiple_faces");
-        }
+
+      if (count !== lastFaceCountRef.current)
+        {
         lastFaceCountRef.current = count;
-      } catch (err) {
+
+      if (count === 0) {
+        logEvent("no_face_detected");
+       } 
+      else if (count > 1) { 
+        // Multiple faces — end interview immediately
+        logEvent("multiple_faces");
+        vapiRef.current?.stop();
+        document.exitFullscreen?.().catch(() => {});
+        setState("escalated");
+       }
+     }
+
+      } catch (err) 
+      {
         console.error("Face detection check failed", err);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, FACE_CHECK_INTERVAL_MS);
+      }, FACE_CHECK_INTERVAL_MS);
 
     return () => {
       if (faceCheckIntervalRef.current) clearInterval(faceCheckIntervalRef.current);
     };
+
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
@@ -468,6 +500,14 @@ export default function InterviewRoomPage() {
               <ShieldAlert className="w-3.5 h-3.5" /> {violationCount} violation{violationCount === 1 ? "" : "s"} detected
             </div>
           )}
+
+          
+          {state === "active" && lastViolationMessage && (
+            <div className="absolute top-20 right-3 flex items-center gap-1.5 bg-black/80 px-2.5 py-1.5 rounded-full text-xs text-white animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber" /> {lastViolationMessage}
+            </div>
+          )}
+
 
           {faceBlocked && state === "active" && (
             <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-center px-6 z-10">

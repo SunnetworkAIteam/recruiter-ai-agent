@@ -33,6 +33,9 @@ class Interview(Base, TimestampMixin):
     # `_ensure_interview_is_startable` for enforcement — this column
     # alone does nothing without that server-side check.
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Tracks the last time a reminder email was sent, so the background
+    # loop knows when the next one is due. NULL means never reminded yet.
+    last_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Storage path, not public URL — same reasoning as resume_storage_path.

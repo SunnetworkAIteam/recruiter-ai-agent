@@ -196,6 +196,56 @@ def run_pending_syncs(db) -> int:
     return synced_count
 
 
+def send_pending_reminders(db) -> int:
+    """
+    Re-sends the interview invite email to any candidate who hasn't
+    started their interview yet, every REMINDER_INTERVAL_DAYS, until
+    they either start/complete the interview (status changes away from
+    SCHEDULED) or the link expires — both already naturally stop this
+    query from matching, no separate stop logic needed.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=settings.REMINDER_INTERVAL_DAYS)
+
+    candidates_due = (
+        db.query(Interview)
+        .filter(
+            Interview.status == InterviewStatus.SCHEDULED,
+            Interview.expires_at > now,
+            (Interview.last_reminder_sent_at.is_(None)) | (Interview.last_reminder_sent_at <= cutoff),
+            Interview.created_at <= cutoff,
+        )
+        .all()
+    )
+
+    sent_count = 0
+    for interview in candidates_due:
+        candidate = db.query(Candidate).filter(Candidate.id == interview.candidate_id).first()
+        if candidate is None:
+            continue
+        job = db.query(Job).filter(Job.id == candidate.job_id).first()
+        if job is None:
+            continue
+
+        interview_url = f"{settings.FRONTEND_URL}/interview/{interview.id}"
+        email_sent = email_service.send_interview_invite(
+            to_email=candidate.email,
+            candidate_name=candidate.full_name,
+            job_title=job.title,
+            company_name=settings.COMPANY_DISPLAY_NAME,
+            interview_url=interview_url,
+        )
+        if email_sent:
+            interview.last_reminder_sent_at = now
+            sent_count += 1
+
+    if sent_count:
+        db.commit()
+    return sent_count
+
+
 async def background_sync_loop() -> None:
     """
     Runs forever in the background, started once at app startup (see
@@ -218,3 +268,15 @@ async def background_sync_loop() -> None:
             logger.error("background_sync_loop_error", error=str(exc))
         finally:
             db.close()
+
+        db = SessionLocal()
+        try:
+            reminder_count = send_pending_reminders(db)
+            if reminder_count:
+                logger.info("reminder_emails_sent", count=reminder_count)
+        except Exception as exc:
+            logger.error("reminder_loop_error", error=str(exc))
+        finally:
+            db.close()
+
+    

@@ -1,3 +1,4 @@
+
 """
 Interview endpoints: recruiter-triggered scheduling, candidate-facing
 public view, and the Vapi webhook receiver.
@@ -362,8 +363,17 @@ def log_interview_event(request: Request, interview_id: str, payload: InterviewE
             outcome=f"auto-ended: {violation_count} violations >= threshold {settings.MAX_INTEGRITY_VIOLATIONS}",
         )
 
+ 
+
     db.commit()
-    return {"logged": True, "violation_count": violation_count, "escalate": escalate}
+    return {
+        "logged": True,
+        "violation_count": real_violation_count,
+        "no_face_count": no_face_count,
+        "escalate": escalate,
+        "event_type": payload.event_type,
+    }
+
 
 def _extract_recording_url(payload: dict) -> str | None:
     """Vapi's recording URL has moved location before (their own changelog

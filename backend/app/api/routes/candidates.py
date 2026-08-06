@@ -35,6 +35,7 @@ from app.services.decision_log_service import record_decision
 from app.models.decision_log import DecisionStepType
 from app.services.resume_parser import extract_text_from_resume
 from app.models.candidate import CandidateStage
+from app.services.storage_service import get_signed_resume_url
 from app.core.exceptions import ValidationFailedError
 
 logger = get_logger(__name__)
@@ -336,6 +337,29 @@ def get_resume_score(
         raise ResourceNotFoundError("No resume score found for this candidate yet")
     return score
 
+@router.get("/{candidate_id}/resume-download")
+def get_resume_download_url(
+    candidate_id: str,
+    db: Session = Depends(get_db),
+    user: AuthenticatedUser = Depends(require_org_membership),
+):
+    """
+    Returns a fresh, short-lived signed URL to download a candidate's
+    resume. Same org-scoping as every other candidate endpoint — a
+    recruiter can only download resumes for candidates in their own org.
+    Generated on demand, not stored, since the resume file itself is
+    never publicly listable (see Candidate.resume_storage_path).
+    """
+    candidate = (
+        db.query(Candidate)
+        .join(Job, Job.id == Candidate.job_id)
+        .filter(Candidate.id == candidate_id, Job.owner_org_id == user.org_id)
+        .first()
+    )
+    if candidate is None:
+        raise ResourceNotFoundError("Candidate not found")
+    url = get_signed_resume_url(candidate.resume_storage_path)
+    return {"url": url}
 
 @router.patch("/{candidate_id}/stage")
 def update_candidate_stage(

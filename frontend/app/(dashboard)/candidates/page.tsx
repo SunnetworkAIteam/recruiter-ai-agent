@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Users, Star, CheckCircle2, Target, Loader2, AlertTriangle, Send, Trash2 } from "lucide-react";
+import { Loader2, Send, Download /* ...keep existing icons */ } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { StageBadge } from "@/components/ui/Badge";
@@ -81,6 +82,15 @@ export default function CandidatesPage() {
       setError(err instanceof ApiError ? err.message : "Failed to schedule interview.");
     } finally {
       setSchedulingId(null);
+    }
+  }
+
+  async function handleDownloadResume(candidateId: string) {
+    try {
+      const result = await call<{ url: string }>(`/candidates/${candidateId}/resume-download`);
+      window.open(result.url, "_blank");
+    } catch {
+      alert("Failed to get resume download link.");
     }
   }
 
@@ -186,9 +196,9 @@ export default function CandidatesPage() {
                   <th className="px-4 py-3 font-medium">Candidate</th>
                   <th className="px-4 py-3 font-medium">Job</th>
                   <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Tech</th>
-                  <th className="px-4 py-3 font-medium">Comm.</th>
-                  <th className="px-4 py-3 font-medium">Match</th>
+                  <th className="px-4 py-3 font-medium">Resume Score</th>
+                  <th className="px-4 py-3 font-medium">Resume</th>
+                  <th className="px-4 py-3 font-medium"></th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
@@ -203,15 +213,20 @@ export default function CandidatesPage() {
                     <td className="px-4 py-3">
                       <StageBadge stage={c.stage} />
                     </td>
-                    <td className="px-4 py-3 font-mono text-ink-2">
-                      {c.tech_score !== null ? `${c.tech_score}%` : "—"}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-ink-2">
-                      {c.communication_score !== null ? `${c.communication_score}%` : "—"}
-                    </td>
+
                     <td className="px-4 py-3 font-mono font-semibold text-ink">
                       {c.role_match_score !== null ? `${c.role_match_score}%` : "—"}
                     </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleDownloadResume(c.id)}
+                        className="inline-flex items-center gap-1.5 text-xs text-accent-light hover:underline"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </button>
+                    </td>
+
                     <td className="px-4 py-3">
                       {c.stage === "applied" || c.stage === "screened" || c.stage === "shortlisted" ? (
                         <button
