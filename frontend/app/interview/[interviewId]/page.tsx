@@ -35,7 +35,6 @@ export default function InterviewRoomPage() {
   const [consentChecks, setConsentChecks] = useState({ camera: false, recording: false, monitoring: false });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [violationCount, setViolationCount] = useState<number>(0);
-  const [violationMessage, setViolationMessage] = useState<string | null>(null);
   const [lastViolationMessage, setLastViolationMessage] = useState<string | null>(null);
   const [faceBlocked, setFaceBlocked] = useState(false);
 
