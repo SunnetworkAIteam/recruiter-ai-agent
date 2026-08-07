@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Users, Star, CheckCircle2, Target, Loader2, AlertTriangle, Send, Trash2 } from "lucide-react";
-import { Loader2, Send, Download /* ...keep existing icons */ } from "lucide-react";
+import { Users, Star, CheckCircle2, Target, Loader2, AlertTriangle, Send, Trash2, Download } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { StatCard } from "@/components/ui/StatCard";
 import { StageBadge } from "@/components/ui/Badge";
