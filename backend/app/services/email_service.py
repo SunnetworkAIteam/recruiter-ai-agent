@@ -84,9 +84,10 @@ def send_interview_invite(
           Start Your Interview
         </a>
       </p>
-      <p style="color:#666; font-size:13px;">
-        This link is unique to you and expires in 7 days &mdash; please don't share it. If you have
-        any issues or need a new link, just reply to this email.
+      <p style="color:#666; font-size:13px;"> 
+        This link is unique to you and expires in 5 days &mdash;  please don't share it. 
+        The application window for this position is closing soon, so please complete your AI interview at the earliest. 
+        If you face any issues reply to this email.
       </p>
     </div>
     """
