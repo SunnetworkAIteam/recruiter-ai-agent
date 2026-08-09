@@ -56,6 +56,7 @@ class Settings(BaseSettings):
         ..., description="Supabase service role key — server-side ONLY, never exposed to frontend"
     )
     SUPABASE_STORAGE_BUCKET_RESUMES: str = "resumes"
+    SUPABASE_STORAGE_BUCKET_SELFIES: str = "selfies"
     SUPABASE_STORAGE_BUCKET_RECORDINGS: str = "interview-recordings"
 
     # --- Clerk (Auth) ---

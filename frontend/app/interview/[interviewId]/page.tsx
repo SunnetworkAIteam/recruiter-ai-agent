@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +18,7 @@ type RoomState =
   | "active"
   | "ended"
   | "incomplete"
+  | "time_expired"
   | "escalated"
   | "error";
 
@@ -27,6 +29,10 @@ const VAPI_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ?? "";
 // we only ever send face COUNTS to our backend, never frames or video.
 const FACE_MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights";
 const FACE_CHECK_INTERVAL_MS = 4000;
+// Hard safety cap — the prompt targets 10-15 minutes, this gives a few
+// minutes of buffer for the AI to naturally wrap up before we forcibly
+// end the call, so a runaway conversation never goes unbounded.
+const MAX_INTERVIEW_DURATION_MS = 14 * 60 * 1000;
 
 export default function InterviewRoomPage() {
   const params = useParams<{ interviewId: string }>();
@@ -43,6 +49,7 @@ export default function InterviewRoomPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const vapiRef = useRef<Vapi | null>(null);
   const callStartRef = useRef<number>(0);
+  const durationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const faceModelsLoadedRef = useRef(false);
   const lastFaceCountRef = useRef<number | null>(null);
   const consecutiveNoFaceRef = useRef(0);
@@ -122,6 +129,45 @@ export default function InterviewRoomPage() {
     // swallow
   }
 }
+
+  async function verifyIdentity() {
+    if (!interview?.selfie_url || !videoRef.current) return;
+    try {
+      const faceapi = await import("face-api.js");
+      await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL);
+
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 });
+
+      const selfieImg = await faceapi.fetchImage(interview.selfie_url);
+      const selfieResult = await faceapi
+        .detectSingleFace(selfieImg, options)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      const liveResult = await faceapi
+        .detectSingleFace(videoRef.current, options)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!selfieResult || !liveResult) {
+        // Couldn't find a clear face in one of the two images — flag
+        // for review rather than guess.
+        logEvent("identity_mismatch");
+        return;
+      }
+
+      const distance = faceapi.euclideanDistance(selfieResult.descriptor, liveResult.descriptor);
+      if (distance > 0.6) {
+        logEvent("identity_mismatch");
+      }
+    } catch (err) {
+      // Fail OPEN, never block the interview on a technical failure
+      // (e.g. network issue loading the selfie) — this is a flag-only
+      // feature, not a gate.
+      console.error("Identity verification failed", err);
+    }
+  }
 
 
 
@@ -248,12 +294,24 @@ export default function InterviewRoomPage() {
       return;
     }
 
+    // Fire-and-forget: never block the interview from starting on this —
+    // it's a flag-only check for the recruiter to review afterward, not
+    // a gate the candidate has to pass.
+    verifyIdentity();
+
     const vapi = new Vapi(VAPI_PUBLIC_KEY);
     vapiRef.current = vapi;
 
     vapi.on("call-start", () => {
       callStartRef.current = Date.now();
       setState("active");
+
+      durationTimeoutRef.current = setTimeout(() => {
+        vapiRef.current?.stop();
+        document.exitFullscreen?.().catch(() => {});
+        setState("time_expired");
+      }, MAX_INTERVIEW_DURATION_MS);
+    
 
     // Fullscreen
     document.documentElement.requestFullscreen?.().catch(() => {});
@@ -286,6 +344,7 @@ export default function InterviewRoomPage() {
 
 
     vapi.on("call-end", () => {
+      if (durationTimeoutRef.current) clearTimeout(durationTimeoutRef.current);
       // Don't overwrite "escalated" — vapi.stop() (called when we
       // force-end for integrity violations) triggers this same
       // call-end event a moment later, which would otherwise silently
@@ -347,6 +406,7 @@ export default function InterviewRoomPage() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       vapiRef.current?.stop();
       if (faceCheckIntervalRef.current) clearInterval(faceCheckIntervalRef.current);
+      if (durationTimeoutRef.current) clearTimeout(durationTimeoutRef.current);
     };
   }, []);
 
@@ -410,6 +470,20 @@ export default function InterviewRoomPage() {
           <p className="text-sm text-ink-2">
             Thanks for taking the time to speak with us, {interview?.candidate_name}. The recruiting team will
             follow up with next steps.
+          </p>
+        </Card>
+      </Centered>
+    );
+  }
+
+  if (state === "time_expired") {
+    return (
+      <Centered>
+        <Card>
+          <CheckCircle2 className="w-8 h-8 text-teal mx-auto mb-3" />
+          <h1 className="text-lg font-bold text-ink mb-1">Interview complete</h1>
+          <p className="text-sm text-ink-2">
+            Thanks for taking the time to speak with us, {interview?.candidate_name}. The recruiting team will follow up with next steps.
           </p>
         </Card>
       </Centered>

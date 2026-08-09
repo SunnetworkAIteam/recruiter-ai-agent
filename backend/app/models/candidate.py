@@ -13,6 +13,7 @@ class CandidateStage(str, PyEnum):
     SHORTLISTED = "shortlisted"
     INTERVIEW_SCHEDULED = "interview_scheduled"
     INTERVIEWED = "interviewed"
+    RECOMMENDED = "recommended"  # passed the interview (score >= threshold) — distinct from pre-interview SHORTLISTED
     REJECTED = "rejected"
     HIRED = "hired"
 
@@ -30,6 +31,11 @@ class Candidate(Base, TimestampMixin):
     # Path within Supabase Storage, NOT a public URL — signed URLs are
     # generated on demand server-side so resumes are never publicly listable.
     resume_storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    # Selfie captured live via webcam at application time — used to
+    # verify the candidate's identity against their camera feed when
+    # they later take the AI interview. Same non-public storage
+    # pattern as resume_storage_path: never a public URL, signed on demand.
+    selfie_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     stage: Mapped[CandidateStage] = mapped_column(
         Enum(CandidateStage, name="candidate_stage"), nullable=False, default=CandidateStage.APPLIED

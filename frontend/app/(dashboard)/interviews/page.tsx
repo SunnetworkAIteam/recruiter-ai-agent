@@ -264,6 +264,14 @@ export default function InterviewsPage() {
                 </div>
               )}
 
+              {selected.identity_mismatch_flagged && (
+                <div className="flex items-center gap-2 bg-danger-dim text-danger text-xs px-3 py-2 rounded-lg mb-3">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Identity check flagged: the face detected at interview start didn&apos;t clearly match the
+                  application selfie. Review the recording before making a decision.
+                </div>
+              )}
+              
               {/* Transcript */}
               {selected.transcript && (
                 <div>

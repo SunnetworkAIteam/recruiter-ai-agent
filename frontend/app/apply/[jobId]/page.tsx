@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Upload, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -20,9 +20,53 @@ export default function ApplyPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null);
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  async function startSelfieCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      streamRef.current = stream;
+      setCameraActive(true);
+      // Video element isn't rendered until cameraActive is true, so
+      // attach the stream on the next tick once it exists.
+      setTimeout(() => {
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      }, 0);
+    } catch {
+      setError("Camera access is required to take a verification selfie.");
+    }
+  }
+
+  function captureSelfie() {
+    if (!videoRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
+    canvas.toBlob((blob) => {
+      if (blob) {
+        setSelfieBlob(blob);
+        setSelfiePreviewUrl(URL.createObjectURL(blob));
+      }
+    }, "image/jpeg", 0.9);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    setCameraActive(false);
+  }
+
+  function retakeSelfie() {
+    setSelfieBlob(null);
+    if (selfiePreviewUrl) URL.revokeObjectURL(selfiePreviewUrl);
+    setSelfiePreviewUrl(null);
+    startSelfieCamera();
+  }
+
 
   useEffect(() => {
     apiFetch<PublicJob>(`/jobs/${params.jobId}/public`)
@@ -36,6 +80,10 @@ export default function ApplyPage() {
       setError("Please attach your resume (PDF or DOCX).");
       return;
     }
+    if (!selfieBlob) {
+      setError("Please take a verification selfie before submitting.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -45,6 +93,7 @@ export default function ApplyPage() {
     formData.append("email", email);
     if (phone) formData.append("phone", phone);
     formData.append("resume", resumeFile);
+    formData.append("selfie", selfieBlob, "selfie.jpg");
 
     try {
       await apiFetch("/candidates/apply", { method: "POST", body: formData });
@@ -151,6 +200,37 @@ export default function ApplyPage() {
                 onChange={(e) => setResumeFile(e.target.files?.[0] ?? null)}
               />
             </label>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">
+              Verification Selfie — used to confirm your identity when you take the interview later
+            </label>
+            {!cameraActive && !selfiePreviewUrl && (
+              <button
+                type="button"
+                onClick={startSelfieCamera}
+                className="w-full flex items-center justify-center gap-2 border border-dashed border-border-2 rounded-lg px-3 py-3 text-sm text-ink-2 hover:border-accent transition-colors"
+              >
+                <Camera className="w-4 h-4" /> Open camera
+              </button>
+            )}
+            {cameraActive && (
+              <div className="space-y-2">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg bg-black aspect-video object-cover" />
+                <button type="button" onClick={captureSelfie} className="btn-primary w-full justify-center">
+                  Capture
+                </button>
+              </div>
+            )}
+            {selfiePreviewUrl && (
+              <div className="space-y-2">
+                <img src={selfiePreviewUrl} alt="Selfie preview" className="w-full rounded-lg aspect-video object-cover" />
+                <button type="button" onClick={retakeSelfie} className="btn-secondary w-full justify-center text-xs">
+                  Retake
+                </button>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

@@ -48,7 +48,7 @@ from app.models.interview import Interview, InterviewEvent, InterviewStatus
 from app.models.job import Job
 from app.schemas.interview import InterviewCreateResponse, InterviewPublicResponse, InterviewRecruiterResponse, InterviewViolationEntry
 from app.schemas.interview_event import InterviewEventCreateRequest
-from app.services import claude_service, email_service, interview_service
+from app.services import claude_service, email_service, interview_service, storage_service
 from app.services.decision_log_service import record_decision
 from app.models.decision_log import DecisionStepType
 
@@ -214,16 +214,19 @@ def start_interview(request: Request, interview_id: str, db: Session = Depends(g
     db.commit()
     return {"started": True}
 
-
-
 def _to_recruiter_response(interview: Interview, candidate_name: str, job_title: str, db: Session) -> InterviewRecruiterResponse:
     violation_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
+    identity_mismatch_flagged = (
+        db.query(InterviewEvent)
+        .filter(InterviewEvent.interview_id == interview.id, InterviewEvent.event_type == "identity_mismatch")
+        .count()
+        > 0
+    )
     return InterviewRecruiterResponse(
         id=interview.id,
         candidate_id=interview.candidate_id,
         candidate_name=candidate_name,
         job_title=job_title,
-        status=interview.status,
         transcript=interview.transcript,
         recording_url=interview.recording_storage_path,
         tech_score=interview.tech_score,
@@ -231,9 +234,9 @@ def _to_recruiter_response(interview: Interview, candidate_name: str, job_title:
         overall_score=interview.overall_score,
         violation_count=violation_count,
         score_deducted=min(violation_count, settings.MAX_INTEGRITY_VIOLATIONS) * settings.VIOLATION_SCORE_DEDUCTION,
+        identity_mismatch_flagged=identity_mismatch_flagged,
         ai_report=interview.ai_report,
     )
-
 
 @router.get("/interviews", response_model=list[InterviewRecruiterResponse])
 def list_interviews(
@@ -333,12 +336,18 @@ def log_interview_event(request: Request, interview_id: str, payload: InterviewE
     db.flush()
 
     total_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
+
     no_face_count = (
         db.query(InterviewEvent)
         .filter(InterviewEvent.interview_id == interview.id, InterviewEvent.event_type == "no_face_detected")
         .count()
     )
-    real_violation_count = total_count - no_face_count
+    identity_mismatch_count = (
+        db.query(InterviewEvent)
+        .filter(InterviewEvent.interview_id == interview.id, InterviewEvent.event_type == "identity_mismatch")
+        .count()
+    )
+    real_violation_count = total_count - no_face_count - identity_mismatch_count
 
     escalate = False
     if (

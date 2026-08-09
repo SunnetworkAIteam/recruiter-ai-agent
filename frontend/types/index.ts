@@ -24,6 +24,7 @@ export type CandidateStage =
   | "rejected"
   | "hired";
 
+
 export interface CandidateDetail {
   id: string;
   job_id: string;
@@ -34,6 +35,7 @@ export interface CandidateDetail {
   tech_score: number | null;
   communication_score: number | null;
   role_match_score: number | null;
+  has_interview: boolean;
   applied_at: string;
 }
 
@@ -57,8 +59,8 @@ export interface InterviewPublic {
   required_skills: string;
   min_years_experience: number;
   vapi_assistant_id: string;
+  selfie_url: string | null;
 }
-
 
 export interface InterviewDetail {
   id: string;
@@ -69,7 +71,9 @@ export interface InterviewDetail {
   transcript: string | null;
   ai_report: string | null;
   recording_url: string | null;
-  candidate_name: string | null;  // ← add
-  job_title: string | null;        // ← add
+  candidate_name: string | null;
+  job_title: string | null;
+  violation_count: number;
+  identity_mismatch_flagged: boolean;
   created_at: string;
 }

@@ -60,6 +60,7 @@ class InterviewEventType(str, PyEnum):
     COPY_PASTE = "copy_paste"
     CAMERA_OFF = "camera_off"
     FULLSCREEN_EXIT = "fullscreen_exit"
+    IDENTITY_MISMATCH = "identity_mismatch"  # face at interview start didn't match application selfie — flag only, never auto-escalates
 
 
 class InterviewEvent(Base, TimestampMixin):

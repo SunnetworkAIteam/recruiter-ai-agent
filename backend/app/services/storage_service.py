@@ -48,6 +48,32 @@ def upload_resume(candidate_id: str, filename: str, content: bytes) -> str:
 
     return storage_path
 
+def upload_selfie(candidate_id: str, content: bytes) -> str:
+    """Uploads a candidate's verification selfie, returns the storage path."""
+    storage_path = f"{candidate_id}/selfie-{uuid.uuid4()}.jpg"
+    try:
+        client = get_supabase_client()
+        client.storage.from_(settings.SUPABASE_STORAGE_BUCKET_SELFIES).upload(
+            storage_path,
+            content,
+            file_options={"content-type": "image/jpeg", "upsert": "false"},
+        )
+    except Exception as exc:
+        logger.error("selfie_upload_failed", candidate_id=candidate_id, error=str(exc))
+        raise StorageError("Failed to store verification selfie. Please try again.")
+    return storage_path
+
+
+def get_signed_selfie_url(storage_path: str, expires_in_seconds: int = 300) -> str:
+    """Same signed-URL pattern as get_signed_resume_url — never public."""
+    client = get_supabase_client()
+    result = client.storage.from_(settings.SUPABASE_STORAGE_BUCKET_SELFIES).create_signed_url(
+        storage_path, expires_in_seconds
+    )
+    return result["signedURL"]
+
+
+
 
 def get_signed_resume_url(storage_path: str, expires_in_seconds: int = 300) -> str:
     """

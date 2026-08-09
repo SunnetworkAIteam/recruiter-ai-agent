@@ -52,7 +52,9 @@ class CandidateResponse(BaseModel):
 class ResumeScoreResponse(BaseModel):
     tech_score: int
     communication_score: int
-    role_match_score: int
+    role_match_score: int | None = None
+    has_interview: bool = False
+    applied_at: str
     summary: str
     strengths: str
     concerns: str

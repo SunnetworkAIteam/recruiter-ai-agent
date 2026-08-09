@@ -55,8 +55,11 @@ async def apply_to_job(
     email: str = Form(...),
     phone: str | None = Form(default=None),
     resume: UploadFile = File(...),
+    selfie: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+
+    
     """
     Candidate application flow:
     1. Validate the job exists and is open.
@@ -89,11 +92,14 @@ async def apply_to_job(
         phone=payload.phone,
         resume_storage_path="",  # set after upload below
     )
+
     db.add(candidate)
     db.flush()  # assigns candidate.id without committing yet
-
     storage_path = storage_service.upload_resume(candidate.id, resume.filename or "resume", content)
     candidate.resume_storage_path = storage_path
+
+    selfie_content = await selfie.read()
+    candidate.selfie_storage_path = storage_service.upload_selfie(candidate.id, selfie_content)
 
     try:
         score_result = claude_service.score_resume(
@@ -184,6 +190,7 @@ def list_candidates(
     this file. Supports optional filtering by job and pipeline stage,
     which the frontend uses for the Candidates page filters.
     """
+
     query = (
         db.query(Candidate, Job.title, ResumeScore)
         .join(Job, Job.id == Candidate.job_id)
@@ -197,6 +204,18 @@ def list_candidates(
 
     rows = query.order_by(Candidate.created_at.desc()).all()
 
+    # A candidate's stage alone can't distinguish "manually shortlisted,
+    # not yet interviewed" from "shortlisted because they passed the
+    # interview" — both currently use the same stage value. has_interview
+    # lets the frontend hide "Send Interview" once one has actually
+    # happened, regardless of what the stage says.
+    candidate_ids_with_interview = {
+        row[0]
+        for row in db.query(Interview.candidate_id)
+        .filter(Interview.candidate_id.in_([c.id for c, _, _ in rows]))
+        .all()
+    }
+
     return [
         CandidateDetailResponse(
             id=candidate.id,
@@ -208,7 +227,7 @@ def list_candidates(
             tech_score=score.tech_score if score else None,
             communication_score=score.communication_score if score else None,
             role_match_score=score.role_match_score if score else None,
-            applied_at=candidate.created_at.isoformat(),
+            has_interview=candidate.id in candidate_ids_with_interview,
         )
         for candidate, job_title, score in rows
     ]
@@ -360,6 +379,31 @@ def get_resume_download_url(
         raise ResourceNotFoundError("Candidate not found")
     url = get_signed_resume_url(candidate.resume_storage_path)
     return {"url": url}
+
+@router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_candidate(
+    candidate_id: str,
+    db: Session = Depends(get_db),
+    user: AuthenticatedUser = Depends(require_org_membership),
+):
+    """
+    Org-scoped hard delete. Cascades to ResumeScore/Interview/InterviewEvent
+    rows via the FK ondelete="CASCADE" already defined on those models —
+    deleting a candidate cleanly removes their scoring and interview
+    history too, not orphaned rows. Does NOT delete the resume file from
+    Supabase Storage yet (noted as a follow-up, not silently skipped).
+    """
+    candidate = (
+        db.query(Candidate)
+        .join(Job, Job.id == Candidate.job_id)
+        .filter(Candidate.id == candidate_id, Job.owner_org_id == user.org_id)
+        .first()
+    )
+    if candidate is None:
+        raise ResourceNotFoundError("Candidate not found")
+    db.delete(candidate)
+    db.commit()
+
 
 @router.patch("/{candidate_id}/stage")
 def update_candidate_stage(

@@ -85,6 +85,7 @@ def process_completed_transcript(db, interview: Interview, transcript: str, vapi
                 transcript=transcript,
                 job_title=job.title,
                 required_skills=job.required_skills,
+                min_years_experience=job.min_years_experience,
                 interview_id=interview.id,
             )
             interview.tech_score = result.tech_score

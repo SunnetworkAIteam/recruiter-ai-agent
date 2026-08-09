@@ -227,7 +227,7 @@ export default function CandidatesPage() {
                     </td>
 
                     <td className="px-4 py-3">
-                      {c.stage === "applied" || c.stage === "screened" || c.stage === "shortlisted" ? (
+                      {(c.stage === "applied" || c.stage === "screened" || c.stage === "shortlisted") && !c.has_interview ? (
                         <button
                           onClick={() => handleScheduleInterview(c.id)}
                           disabled={schedulingId === c.id}

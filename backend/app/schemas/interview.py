@@ -23,6 +23,7 @@ class InterviewPublicResponse(BaseModel):
     required_skills: str
     min_years_experience: int
     vapi_assistant_id: str
+    selfie_url: str | None = None
 
 
 class InterviewRecruiterResponse(BaseModel):
@@ -37,6 +38,7 @@ class InterviewRecruiterResponse(BaseModel):
     communication_score: int | None
     overall_score: int | None
     violation_count: int = 0
+    identity_mismatch_flagged: bool = False
     score_deducted: int = 0
     ai_report: str | None
 
