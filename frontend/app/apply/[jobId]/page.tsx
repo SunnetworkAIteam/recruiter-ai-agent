@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
-import { Upload, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, AlertTriangle, Camera } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api";
 
 interface PublicJob {
