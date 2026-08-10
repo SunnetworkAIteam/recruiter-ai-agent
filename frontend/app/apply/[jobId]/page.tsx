@@ -23,6 +23,7 @@ export default function ApplyPage() {
   const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -33,31 +34,25 @@ export default function ApplyPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       streamRef.current = stream;
+      setVideoReady(false);
       setCameraActive(true);
-      // Video element isn't rendered until cameraActive is true, so
-      // attach the stream on the next tick once it exists. Explicitly
-      // call .play() — some browsers don't reliably honor the autoPlay
-      // attribute alone, which is why the preview can show black even
-      // though the stream itself is active.
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
-      }, 0);
     } catch {
       setError("Camera access is required to take a verification selfie.");
     }
   }
 
+  // Attaches the stream once the <video> element actually exists in the
+  // DOM (only true after cameraActive flips the JSX to render it) —
+  // a guaranteed-after-render effect instead of a setTimeout guess.
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraActive]);
+
   function captureSelfie() {
-    if (!videoRef.current) return;
-    // Guard against capturing before the video actually has real
-    // dimensions — this produces a 0x0/blank image if it happens too
-    // early, which is exactly why the blob validation was failing
-    // silently on submit.
-    if (!videoRef.current.videoWidth || !videoRef.current.videoHeight) {
-      setError("Camera is still loading — please wait a moment and try Capture again.");
+    if (!videoRef.current || !videoReady) {
+      setError("Camera is still loading — please wait a moment and try again.");
       return;
     }
     const canvas = document.createElement("canvas");
@@ -76,8 +71,6 @@ export default function ApplyPage() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     setCameraActive(false);
   }
-
-
 
   function retakeSelfie() {
     setSelfieBlob(null);
@@ -236,7 +229,14 @@ export default function ApplyPage() {
             )}
             {cameraActive && (
               <div className="space-y-2">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg bg-black aspect-video object-cover" />
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  onLoadedMetadata={() => setVideoReady(true)}
+                  className="w-full rounded-lg bg-black aspect-video object-cover"
+                />
                 <button type="button" onClick={captureSelfie} className="btn-primary w-full justify-center">
                   Capture
                 </button>
