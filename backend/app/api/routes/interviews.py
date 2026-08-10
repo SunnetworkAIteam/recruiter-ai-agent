@@ -227,6 +227,7 @@ def _to_recruiter_response(interview: Interview, candidate_name: str, job_title:
         candidate_id=interview.candidate_id,
         candidate_name=candidate_name,
         job_title=job_title,
+        status=interview.status,
         transcript=interview.transcript,
         recording_url=interview.recording_storage_path,
         tech_score=interview.tech_score,
