@@ -53,7 +53,6 @@ class ResumeScoreResponse(BaseModel):
     tech_score: int
     communication_score: int
     role_match_score: int | None = None
-    has_interview: bool = False
     applied_at: str
     summary: str
     strengths: str
@@ -73,3 +72,4 @@ class CandidateDetailResponse(BaseModel):
     communication_score: int | None = None
     role_match_score: int | None = None
     applied_at: str
+    has_interview: bool = False

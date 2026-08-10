@@ -228,6 +228,7 @@ def list_candidates(
             communication_score=score.communication_score if score else None,
             role_match_score=score.role_match_score if score else None,
             has_interview=candidate.id in candidate_ids_with_interview,
+            applied_at=candidate.created_at.isoformat(),
         )
         for candidate, job_title, score in rows
     ]
