@@ -35,9 +35,15 @@ export default function ApplyPage() {
       streamRef.current = stream;
       setCameraActive(true);
       // Video element isn't rendered until cameraActive is true, so
-      // attach the stream on the next tick once it exists.
+      // attach the stream on the next tick once it exists. Explicitly
+      // call .play() — some browsers don't reliably honor the autoPlay
+      // attribute alone, which is why the preview can show black even
+      // though the stream itself is active.
       setTimeout(() => {
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
       }, 0);
     } catch {
       setError("Camera access is required to take a verification selfie.");
@@ -46,6 +52,14 @@ export default function ApplyPage() {
 
   function captureSelfie() {
     if (!videoRef.current) return;
+    // Guard against capturing before the video actually has real
+    // dimensions — this produces a 0x0/blank image if it happens too
+    // early, which is exactly why the blob validation was failing
+    // silently on submit.
+    if (!videoRef.current.videoWidth || !videoRef.current.videoHeight) {
+      setError("Camera is still loading — please wait a moment and try Capture again.");
+      return;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
@@ -54,11 +68,16 @@ export default function ApplyPage() {
       if (blob) {
         setSelfieBlob(blob);
         setSelfiePreviewUrl(URL.createObjectURL(blob));
+        setError(null);
+      } else {
+        setError("Failed to capture selfie — please try again.");
       }
     }, "image/jpeg", 0.9);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     setCameraActive(false);
   }
+
+
 
   function retakeSelfie() {
     setSelfieBlob(null);
