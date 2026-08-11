@@ -32,7 +32,7 @@ const FACE_CHECK_INTERVAL_MS = 4000;
 // Hard safety cap — the prompt targets 10-15 minutes, this gives a few
 // minutes of buffer for the AI to naturally wrap up before we forcibly
 // end the call, so a runaway conversation never goes unbounded.
-const MAX_INTERVIEW_DURATION_MS = 14 * 60 * 1000;
+const MAX_INTERVIEW_DURATION_MS = 16 * 60 * 1000;
 
 export default function InterviewRoomPage() {
   const params = useParams<{ interviewId: string }>();
