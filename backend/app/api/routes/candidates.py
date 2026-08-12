@@ -265,7 +265,6 @@ def get_candidate_stage_counts(
         CandidateStage.SHORTLISTED,
         CandidateStage.INTERVIEW_SCHEDULED,
         CandidateStage.INTERVIEWED,
-        CandidateStage.RECOMMENDED,
         CandidateStage.REJECTED,
         CandidateStage.HIRED,
     }
@@ -277,8 +276,11 @@ def get_candidate_stage_counts(
         "interview_scheduled": sum(1 for c in candidates if c.stage == CandidateStage.INTERVIEW_SCHEDULED),
         "interviewed": sum(1 for c in candidates if c.id in interviewed_candidate_ids),
         "rejected": sum(1 for c in candidates if c.stage == CandidateStage.REJECTED),
-        "hired": sum(1 for c in candidates if c.stage == CandidateStage.RECOMMENDED),
+        "hired": sum(1 for c in candidates if c.stage == CandidateStage.HIRED),
     }
+    return counts
+
+
 
 
 @router.get("/{candidate_id}/audit-log", response_model=list[DecisionLogEntry])
