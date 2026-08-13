@@ -19,6 +19,10 @@ export default function ApplyPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [currentCtc, setCurrentCtc] = useState("");
+  const [expectedCtc, setExpectedCtc] = useState("");
+  const [noticePeriodDays, setNoticePeriodDays] = useState("");
+  const [totalYearsExperience, setTotalYearsExperience] = useState("");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null);
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null);
@@ -96,6 +100,11 @@ export default function ApplyPage() {
       setError("Please take a verification selfie before submitting.");
       return;
     }
+    if (!phone || !currentCtc || !expectedCtc || !noticePeriodDays || !totalYearsExperience) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -103,7 +112,11 @@ export default function ApplyPage() {
     formData.append("job_id", params.jobId);
     formData.append("full_name", fullName);
     formData.append("email", email);
-    if (phone) formData.append("phone", phone);
+    formData.append("phone", phone);
+    formData.append("current_ctc", currentCtc);
+    formData.append("expected_ctc", expectedCtc);
+    formData.append("notice_period_days", noticePeriodDays);
+    formData.append("total_years_experience", totalYearsExperience);
     formData.append("resume", resumeFile);
     formData.append("selfie", selfieBlob, "selfie.jpg");
 
@@ -197,9 +210,53 @@ export default function ApplyPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-2 mb-1.5">Phone (optional)</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field" />
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">Phone</label>
+            <input required value={phone} onChange={(e) => setPhone(e.target.value)} className="input-field" />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">Current CTC</label>
+            <input
+              required
+              placeholder="e.g. 8 LPA"
+              value={currentCtc}
+              onChange={(e) => setCurrentCtc(e.target.value)}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">Expected CTC</label>
+            <input
+              required
+              placeholder="e.g. 10 LPA"
+              value={expectedCtc}
+              onChange={(e) => setExpectedCtc(e.target.value)}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">Notice Period (days)</label>
+            <input
+              required
+              type="number"
+              min="0"
+              value={noticePeriodDays}
+              onChange={(e) => setNoticePeriodDays(e.target.value)}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">Total Years of Experience</label>
+            <input
+              required
+              type="number"
+              step="0.1"
+              min="0"
+              value={totalYearsExperience}
+              onChange={(e) => setTotalYearsExperience(e.target.value)}
+              className="input-field"
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-medium text-ink-2 mb-1.5">Resume (PDF or DOCX, max 5MB)</label>
             <label className="flex items-center gap-2 border border-dashed border-border-2 rounded-lg px-3 py-3 cursor-pointer hover:border-accent transition-colors text-sm text-ink-2">

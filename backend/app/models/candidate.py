@@ -1,6 +1,7 @@
 from enum import Enum as PyEnum
 
-from sqlalchemy import Enum, ForeignKey, String
+
+from sqlalchemy import Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -31,6 +32,10 @@ class Candidate(Base, TimestampMixin):
     # Path within Supabase Storage, NOT a public URL — signed URLs are
     # generated on demand server-side so resumes are never publicly listable.
     resume_storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    current_ctc: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expected_ctc: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notice_period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_years_experience: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Selfie captured live via webcam at application time — used to
     # verify the candidate's identity against their camera feed when
     # they later take the AI interview. Same non-public storage

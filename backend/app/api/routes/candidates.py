@@ -53,7 +53,11 @@ async def apply_to_job(
     job_id: str = Form(...),
     full_name: str = Form(...),
     email: str = Form(...),
-    phone: str | None = Form(default=None),
+    phone: str = Form(...),
+    current_ctc: str = Form(...),
+    expected_ctc: str = Form(...),
+    notice_period_days: int = Form(...),
+    total_years_experience: float = Form(...),
     resume: UploadFile = File(...),
     selfie: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -90,6 +94,10 @@ async def apply_to_job(
         full_name=payload.full_name,
         email=payload.email,
         phone=payload.phone,
+        current_ctc=current_ctc,
+        expected_ctc=expected_ctc,
+        notice_period_days=notice_period_days,
+        total_years_experience=total_years_experience,
         resume_storage_path="",  # set after upload below
     )
 
