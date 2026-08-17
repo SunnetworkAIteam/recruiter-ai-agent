@@ -301,6 +301,8 @@ export default function ApplyPage() {
             )}
             {selfiePreviewUrl && (
               <div className="space-y-2">
+                {/* next/image doesn't support blob: URLs from local camera capture — plain <img> is correct here */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={selfiePreviewUrl} alt="Selfie preview" className="w-full rounded-lg aspect-video object-cover" />
                 <button type="button" onClick={retakeSelfie} className="btn-secondary w-full justify-center text-xs">
                   Retake

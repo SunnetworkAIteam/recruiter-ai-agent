@@ -26,7 +26,7 @@ const STAGE_LABELS: { key: string; label: string; color: string }[] = [
   { key: "interview_scheduled", label: "Interviewing", color: "bg-amber text-white" },
   { key: "interviewed", label: "Interviewed", color: "bg-orange-500 text-white" },
   { key: "rejected", label: "Rejected", color: "bg-red-600 text-white" },
-  { key: "hired", label: "Shortlisted", color: "bg-green-600 text-white" },
+  { key: "hired", label: "Selected", color: "bg-green-600 text-white" },
 ];
 
 const STAGE_BADGE_STYLES: Record<string, string> = {
@@ -63,7 +63,7 @@ export default function JobPipelinePage() {
   }, [params.jobId]);
 
   return (
-    <main className="p-6">
+    <main className="flex-1 overflow-y-auto p-6">
       <Link href="/jobs" className="inline-flex items-center gap-1.5 text-sm text-ink-2 hover:text-ink mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" /> Back to Jobs
       </Link>

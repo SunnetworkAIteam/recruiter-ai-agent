@@ -162,6 +162,42 @@ def fetch_call_from_vapi(vapi_call_id: str) -> dict:
     return response.json()
 
 
+def get_vapi_recording_url(vapi_call_id: str | None, kind: str = "mono") -> str | None:
+    """
+    Vapi recordings live in a private bucket and can't be fetched directly —
+    https://docs.vapi.ai/assistants/retrieve-call-artifacts. We have to hit
+    Vapi's own API with our private key; it responds with a 302 redirect to
+    a short-lived, actually-playable signed URL. Must be requested fresh
+    each time a report is viewed — never cache/store the redirect target,
+    it expires quickly. Returns None (never raises) so a recording issue
+    degrades to "no player shown" rather than breaking the whole report.
+    """
+    import httpx
+
+    if not vapi_call_id:
+        return None
+
+    endpoint = f"{settings.VAPI_API_BASE_URL}/call/{vapi_call_id}/{kind}-recording"
+    try:
+        response = httpx.get(
+            endpoint,
+            headers={"Authorization": f"Bearer {settings.VAPI_API_KEY}"},
+            timeout=15.0,
+            follow_redirects=False,
+        )
+        if response.status_code in (301, 302, 303, 307, 308):
+            return response.headers.get("location")
+        logger.warning(
+            "vapi_recording_unexpected_status",
+            vapi_call_id=vapi_call_id,
+            status_code=response.status_code,
+        )
+        return None
+    except Exception as exc:
+        logger.error("vapi_recording_fetch_failed", vapi_call_id=vapi_call_id, error=str(exc))
+        return None
+
+
 def run_pending_syncs(db) -> int:
     """
     One pass: finds every interview that has a vapi_call_id but no

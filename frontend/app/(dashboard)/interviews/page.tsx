@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<string, string> = {
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span className="font-mono text-ink-2">—</span>;
   const color =
-    score >= 60 ? "text-teal" : score >= 50 ? "text-amber" : "text-danger";
+    score >= 50 ? "text-teal" : score >= 40 ? "text-amber" : "text-danger";
   return (
     <span className={`font-mono font-semibold ${color}`}>{score}%</span>
   );
@@ -35,6 +35,8 @@ function ScoreBadge({ score }: { score: number | null }) {
 export default function InterviewsPage() {
   const { call } = useApi();
   const [interviews, setInterviews] = useState<InterviewDetail[] | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<InterviewDetail | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -70,7 +72,15 @@ export default function InterviewsPage() {
   }
 
   useEffect(refresh, [call]);
+  const roleOptions = interviews
+    ? (Array.from(new Set(interviews.map((iv) => iv.job_title).filter(Boolean))) as string[])
+    : [];
 
+  const filteredInterviews = interviews?.filter((iv) => {
+    const statusMatch = statusFilter === "all" || iv.status === statusFilter;
+    const roleMatch = roleFilter === "all" || iv.job_title === roleFilter;
+    return statusMatch && roleMatch;
+  }) ?? null;
   return (
     <>
       <Topbar title="Interviews" />
@@ -105,6 +115,33 @@ export default function InterviewsPage() {
           </div>
         )}
 
+        {/* Filters */}
+        {!error && interviews !== null && interviews.length > 0 && (
+          <div className="flex gap-3 mb-4">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input-field w-auto text-sm"
+            >
+              <option value="all">All Statuses</option>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="input-field w-auto text-sm"
+            >
+              <option value="all">All Roles</option>
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Table */}
         {!error && interviews !== null && interviews.length > 0 && (
           <div className="card overflow-x-auto">
@@ -121,12 +158,12 @@ export default function InterviewsPage() {
                 </tr>
               </thead>
               <tbody>
-                {interviews.map((iv) => (
+                {filteredInterviews!.map((iv) => (
                   <tr
                     key={iv.id}
                     className="border-t border-border hover:bg-surface-2 transition-colors cursor-pointer"
                     onClick={() => iv.transcript && setSelected(iv)}
-                  >
+                  >                    
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_STYLES[iv.status]}`}

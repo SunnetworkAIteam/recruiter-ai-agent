@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # choice with real consequences (see decision_log entries tagged
     # "auto_invite_threshold" for the audit trail of every automatic
     # decision this setting causes) — not a default to leave unexamined.
-    AUTO_INVITE_SCORE_THRESHOLD: int = 50
+    AUTO_INVITE_SCORE_THRESHOLD: int = 25
 
     # Real display name shown to candidates (emails, interview room) —
     # NOT the Clerk org_id. Using the raw org_id here was a real bug:
@@ -115,15 +115,15 @@ class Settings(BaseSettings):
     # separately with its own, much higher threshold — camera/lighting
     # hiccups shouldn't end an interview the same way deliberately
     # switching tabs does.
-    MAX_INTEGRITY_VIOLATIONS: int = 4
+    MAX_INTEGRITY_VIOLATIONS: int = 5
     MAX_NO_FACE_VIOLATIONS: int = 2
 
     
     # Points deducted from overall_score per logged violation, applied
     # when the transcript is scored. Configurable, not hardcoded — you
     # may want a harsher or lighter penalty later without a code change.
-    VIOLATION_SCORE_DEDUCTION: int = 3
-    AUTO_SHORTLIST_SCORE_THRESHOLD: int = 50
+    VIOLATION_SCORE_DEDUCTION: int = 2
+    AUTO_SHORTLIST_SCORE_THRESHOLD: int = 45
 
     VAPI_API_BASE_URL: str = "https://api.vapi.ai"
 

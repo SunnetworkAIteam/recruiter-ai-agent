@@ -90,3 +90,33 @@ def get_signed_resume_url(storage_path: str, expires_in_seconds: int = 300) -> s
     except Exception as exc:
         logger.error("signed_url_generation_failed", storage_path=storage_path, error=str(exc))
         raise StorageError("Failed to generate resume access link.")
+
+
+def get_signed_recording_url(storage_path: str, expires_in_seconds: int = 300) -> str | None:
+    """
+    Returns a playable URL for an interview recording.
+
+    NOTE: recording_storage_path currently stores Vapi's own raw hosted
+    URL directly (set in interview_service.process_completed_transcript),
+    not a path in our Supabase bucket — despite the column name implying
+    otherwise. Until we add a proper re-upload-to-Supabase step, we detect
+    and pass through external URLs as-is rather than treating them as an
+    internal storage path (which would raise a StorageError from Supabase).
+    TODO: re-upload Vapi recordings to our own bucket so this always
+    returns a short-lived signed URL, matching resumes/selfies.
+    """
+    if not storage_path:
+        return None
+    if storage_path.startswith("http://") or storage_path.startswith("https://"):
+        return storage_path
+    try:
+        client = get_supabase_client()
+        result = client.storage.from_(settings.SUPABASE_STORAGE_BUCKET_RECORDINGS).create_signed_url(
+            storage_path, expires_in_seconds
+        )
+        return result["signedURL"]
+    except Exception as exc:
+        logger.error("signed_url_generation_failed", storage_path=storage_path, error=str(exc))
+        return None
+
+

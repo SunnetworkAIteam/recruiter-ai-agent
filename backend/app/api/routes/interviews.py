@@ -229,7 +229,7 @@ def _to_recruiter_response(interview: Interview, candidate_name: str, job_title:
         job_title=job_title,
         status=interview.status,
         transcript=interview.transcript,
-        recording_url=interview.recording_storage_path,
+        recording_url=interview_service.get_vapi_recording_url(interview.vapi_call_id),
         tech_score=interview.tech_score,
         communication_score=interview.communication_score,
         overall_score=interview.overall_score,

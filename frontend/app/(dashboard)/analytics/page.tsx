@@ -19,7 +19,7 @@ const FUNNEL_STAGES = [
   { key: "shortlisted", label: "Email Sent" },
   { key: "interviewed", label: "Interviewed" },
   { key: "rejected", label: "Rejected" },
-  { key: "hired", label: "Shortlisted" },
+  { key: "hired", label: "Selected" },
 ];
 
 function reachedStage(c: CandidateDetail, key: string): boolean {
