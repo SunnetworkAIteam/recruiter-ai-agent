@@ -214,7 +214,7 @@ def start_interview(request: Request, interview_id: str, db: Session = Depends(g
     db.commit()
     return {"started": True}
 
-def _to_recruiter_response(interview: Interview, candidate_name: str, job_title: str, db: Session) -> InterviewRecruiterResponse:
+def _to_recruiter_response(interview: Interview, candidate_name: str, job_title: str, db: Session, include_recording: bool = False) -> InterviewRecruiterResponse:
     violation_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
     identity_mismatch_flagged = (
         db.query(InterviewEvent)
@@ -229,7 +229,7 @@ def _to_recruiter_response(interview: Interview, candidate_name: str, job_title:
         job_title=job_title,
         status=interview.status,
         transcript=interview.transcript,
-        recording_url=interview_service.get_vapi_recording_url(interview.vapi_call_id),
+        recording_url=(interview_service.get_vapi_recording_url(interview.vapi_call_id) if include_recording else None),
         tech_score=interview.tech_score,
         communication_score=interview.communication_score,
         overall_score=interview.overall_score,
@@ -304,7 +304,7 @@ def get_interview(
     if row is None:
         raise ResourceNotFoundError("Interview not found")
     interview, candidate_name, job_title = row
-    return _to_recruiter_response(interview, candidate_name, job_title, db)
+    return _to_recruiter_response(interview, candidate_name, job_title, db, include_recording=True)
 
 
 @router.post("/interviews/{interview_id}/events", status_code=status.HTTP_201_CREATED)
