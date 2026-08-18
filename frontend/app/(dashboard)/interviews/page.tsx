@@ -70,6 +70,16 @@ export default function InterviewsPage() {
       setSyncingId(null);
     }
   }
+  
+  async function openReport(iv: InterviewDetail) {
+    setSelected(iv);
+    try {
+      const full = await call<InterviewDetail>(`/interviews/${iv.id}`);
+      setSelected(full);
+    } catch (err) {
+      // keep showing what we already have; recording just won't be available
+    }
+  }
 
   useEffect(refresh, [call]);
   const roleOptions = interviews
@@ -162,7 +172,7 @@ export default function InterviewsPage() {
                   <tr
                     key={iv.id}
                     className="border-t border-border hover:bg-surface-2 transition-colors cursor-pointer"
-                    onClick={() => iv.transcript && setSelected(iv)}
+                    onClick={() => iv.transcript && openReport(iv)}
                   >                    
                     <td className="px-4 py-3">
                       <span
@@ -189,7 +199,7 @@ export default function InterviewsPage() {
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       {iv.transcript ? (
                         <button
-                          onClick={() => setSelected(iv)}
+                          onClick={() => openReport(iv)}
                           className="inline-flex items-center gap-1 text-xs text-accent-light hover:underline"
                         >
                           <Play className="w-3 h-3" />
