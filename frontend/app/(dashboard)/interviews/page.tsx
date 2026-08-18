@@ -76,7 +76,7 @@ export default function InterviewsPage() {
     try {
       const full = await call<InterviewDetail>(`/interviews/${iv.id}`);
       setSelected(full);
-    } catch (err) {
+    } catch {
       // keep showing what we already have; recording just won't be available
     }
   }
