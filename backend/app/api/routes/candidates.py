@@ -237,6 +237,7 @@ def list_candidates(
             role_match_score=score.role_match_score if score else None,
             has_interview=candidate.id in candidate_ids_with_interview,
             applied_at=candidate.created_at.isoformat(),
+            contacted=candidate.contacted,
         )
         for candidate, job_title, score in rows
     ]
@@ -269,13 +270,15 @@ def get_candidate_stage_counts(
         .all()
     }
 
+
     reached_shortlist_or_beyond = {
         CandidateStage.SHORTLISTED,
         CandidateStage.INTERVIEW_SCHEDULED,
         CandidateStage.INTERVIEWED,
         CandidateStage.REJECTED,
-        CandidateStage.HIRED,
+        CandidateStage.RECOMMENDED,
     }
+
 
     counts = {
         "uploaded": len(candidates),
@@ -284,7 +287,7 @@ def get_candidate_stage_counts(
         "interview_scheduled": sum(1 for c in candidates if c.stage == CandidateStage.INTERVIEW_SCHEDULED),
         "interviewed": sum(1 for c in candidates if c.id in interviewed_candidate_ids),
         "rejected": sum(1 for c in candidates if c.stage == CandidateStage.REJECTED),
-        "hired": sum(1 for c in candidates if c.stage == CandidateStage.HIRED),
+        "selected": sum(1 for c in candidates if c.stage == CandidateStage.RECOMMENDED),
     }
     return counts
 
@@ -445,6 +448,35 @@ def update_candidate_stage(
     candidate.stage = new_stage
     db.commit()
     return {"id": candidate.id, "stage": candidate.stage}
+
+@router.patch("/{candidate_id}/contacted")
+def update_candidate_contacted(
+    candidate_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(require_org_membership),
+):
+    """
+    Recruiter-only: manually mark whether a recruiter has contacted this
+    candidate outside the automated flow. Same org-scoping as
+    update_candidate_stage above.
+    """
+    candidate = (
+        db.query(Candidate)
+        .join(Job, Job.id == Candidate.job_id)
+        .filter(Candidate.id == candidate_id, Job.owner_org_id == user.org_id)
+        .first()
+    )
+    if candidate is None:
+        raise ResourceNotFoundError("Candidate not found")
+
+    contacted = payload.get("contacted")
+    if not isinstance(contacted, bool):
+        raise ValidationFailedError("contacted must be a boolean")
+
+    candidate.contacted = contacted
+    db.commit()
+    return {"id": candidate.id, "contacted": candidate.contacted}
 
 
 

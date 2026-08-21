@@ -1,7 +1,6 @@
 from enum import Enum as PyEnum
 
-
-from sqlalchemy import Enum, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -44,7 +43,9 @@ class Candidate(Base, TimestampMixin):
 
     stage: Mapped[CandidateStage] = mapped_column(
         Enum(CandidateStage, name="candidate_stage"), nullable=False, default=CandidateStage.APPLIED
+
     )
+    contacted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Consent flags — required before ANY biometric/video processing happens.
     # These must be explicitly set true by a real consent action, never

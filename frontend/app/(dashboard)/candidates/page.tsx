@@ -9,13 +9,15 @@ import { useApi } from "@/lib/useApi";
 import { ApiError } from "@/lib/api";
 import type { CandidateDetail, CandidateStage } from "@/types";
 
+type ContactedFilter = "all" | "contacted" | "not_contacted";
+
 const STAGE_FILTERS: { value: CandidateStage | "all"; label: string }[] = [
   { value: "all", label: "All Statuses" },
   { value: "screened", label: "Screened" },
-  { value: "shortlisted", label: "Shortlisted" },
+  { value: "shortlisted", label: "Email Sent" },
   { value: "interview_scheduled", label: "Interview Scheduled" },
   { value: "interviewed", label: "Interviewed" },
-  { value: "hired", label: "Hired" },
+  { value: "recommended", label: "Selected" },
   { value: "rejected", label: "Rejected" },
 ];
 
@@ -25,6 +27,8 @@ export default function CandidatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<CandidateStage | "all">("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [contactedFilter, setContactedFilter] = useState<ContactedFilter>("all");
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
   const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -46,6 +50,11 @@ export default function CandidatesPage() {
     };
   }, [call]);
 
+  const roleOptions = useMemo(() => {
+    if (!candidates) return [];
+    return Array.from(new Set(candidates.map((c) => c.job_title).filter(Boolean))) as string[];
+  }, [candidates]);
+
   const filtered = useMemo(() => {
     if (!candidates) return [];
     return candidates.filter((c) => {
@@ -54,9 +63,14 @@ export default function CandidatesPage() {
         c.full_name.toLowerCase().includes(search.toLowerCase()) ||
         c.email.toLowerCase().includes(search.toLowerCase());
       const matchesStage = stageFilter === "all" || c.stage === stageFilter;
-      return matchesSearch && matchesStage;
+      const matchesRole = roleFilter === "all" || c.job_title === roleFilter;
+      const matchesContacted =
+        contactedFilter === "all" ||
+        (contactedFilter === "contacted" && c.contacted) ||
+        (contactedFilter === "not_contacted" && !c.contacted);
+      return matchesSearch && matchesStage && matchesRole && matchesContacted;
     });
-  }, [candidates, search, stageFilter]);
+  }, [candidates, search, stageFilter, roleFilter, contactedFilter]);
 
   const kpis = useMemo(() => {
     const list = candidates ?? [];
@@ -81,6 +95,18 @@ export default function CandidatesPage() {
       setError(err instanceof ApiError ? err.message : "Failed to schedule interview.");
     } finally {
       setSchedulingId(null);
+    }
+  }
+
+  async function handleToggleContacted(candidateId: string, current: boolean) {
+    try {
+      await call(`/candidates/${candidateId}/contacted`, {
+        method: "PATCH",
+        body: { contacted: !current },
+      });
+      setCandidates((prev) => prev?.map((c) => (c.id === candidateId ? { ...c, contacted: !current } : c)) ?? prev);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update contacted status.");
     }
   }
 
@@ -120,7 +146,7 @@ export default function CandidatesPage() {
             accentTextClassName="text-info"
           />
           <StatCard
-            label="Shortlisted"
+            label="Email Sent"
             value={kpis.shortlisted}
             icon={Star}
             accentClassName="border-t-amber"
@@ -164,7 +190,29 @@ export default function CandidatesPage() {
                 </option>
               ))}
             </select>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="input-field max-w-[200px]"
+            >
+              <option value="all">All Roles</option>
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+            <select
+              value={contactedFilter}
+              onChange={(e) => setContactedFilter(e.target.value as ContactedFilter)}
+              className="input-field max-w-[180px]"
+            >
+              <option value="all">All Contact Status</option>
+              <option value="contacted">Contacted</option>
+              <option value="not_contacted">Not Yet Contacted</option>
+            </select>
           </div>
+
 
           {error && (
             <div className="flex items-center gap-2 text-danger text-sm p-6">
@@ -195,6 +243,7 @@ export default function CandidatesPage() {
                   <th className="px-4 py-3 font-medium">Candidate</th>
                   <th className="px-4 py-3 font-medium">Job</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Contacted</th>
                   <th className="px-4 py-3 font-medium">Resume Score</th>
                   <th className="px-4 py-3 font-medium">Resume</th>
                   <th className="px-4 py-3 font-medium"></th>
@@ -211,6 +260,17 @@ export default function CandidatesPage() {
                     <td className="px-4 py-3 text-ink-2">{c.job_title}</td>
                     <td className="px-4 py-3">
                       <StageBadge stage={c.stage} />
+                    </td>
+                    
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleToggleContacted(c.id, c.contacted)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          c.contacted ? "bg-teal/20 text-teal" : "bg-surface-2 text-ink-2"
+                        }`}
+                      >
+                        {c.contacted ? "Contacted" : "Not Yet"}
+                      </button>
                     </td>
 
                     <td className="px-4 py-3 font-mono font-semibold text-ink">

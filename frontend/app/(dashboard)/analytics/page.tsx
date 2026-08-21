@@ -19,12 +19,12 @@ const FUNNEL_STAGES = [
   { key: "shortlisted", label: "Email Sent" },
   { key: "interviewed", label: "Interviewed" },
   { key: "rejected", label: "Rejected" },
-  { key: "hired", label: "Selected" },
+  { key: "recommended", label: "Selected" },
 ];
 
 function reachedStage(c: CandidateDetail, key: string): boolean {
-  const beyondScreened = new Set(["shortlisted", "interview_scheduled", "interviewed", "rejected", "hired"]);
-  const beyondShortlisted = new Set(["interview_scheduled", "interviewed", "rejected", "hired"]);
+  const beyondScreened = new Set(["shortlisted", "interview_scheduled", "interviewed", "rejected", "recommended"]);
+  const beyondShortlisted = new Set(["interview_scheduled", "interviewed", "rejected", "recommended"]);
   switch (key) {
     case "uploaded":
       return true;
@@ -33,11 +33,11 @@ function reachedStage(c: CandidateDetail, key: string): boolean {
     case "shortlisted":
       return beyondScreened.has(c.stage);
     case "interviewed":
-      return beyondShortlisted.has(c.stage) || c.stage === "rejected" || c.stage === "hired";
+      return beyondShortlisted.has(c.stage) || c.stage === "rejected" || c.stage === "recommended";
     case "rejected":
       return c.stage === "rejected";
-    case "hired":
-      return c.stage === "hired";
+    case "recommended":
+      return c.stage === "recommended";
     default:
       return false;
   }
@@ -113,10 +113,10 @@ export default function AnalyticsPage() {
     const avgMatch = scored.length
       ? Math.round(scored.reduce((sum, c) => sum + (c.role_match_score ?? 0), 0) / scored.length)
       : null;
-    const hired = filtered.filter((c) => c.stage === "hired").length;
+    const selected = filtered.filter((c) => c.stage === "recommended").length;
     const shortlisted = filtered.filter((c) => reachedStage(c, "shortlisted")).length;
-    const conversionRate = total ? Math.round((hired / total) * 100) : 0;
-    return { total, avgMatch, shortlisted, conversionRate };
+    const conversionRate = total ? Math.round((selected / total) * 100) : 0;
+    return { total, avgMatch, shortlisted, selected, conversionRate };
   }, [filtered]);
 
   const perRole = useMemo(() => {
@@ -124,13 +124,13 @@ export default function AnalyticsPage() {
     return jobs.map((job) => {
       const jobCandidates = (candidates ?? []).filter((c) => c.job_id === job.id);
       const interviewed = jobCandidates.filter((c) => reachedStage(c, "interviewed")).length;
-      const hired = jobCandidates.filter((c) => c.stage === "hired").length;
+      const selected = jobCandidates.filter((c) => c.stage === "recommended").length;
       const scored = jobCandidates.filter((c) => c.role_match_score !== null);
       const avgMatch = scored.length
         ? Math.round(scored.reduce((sum, c) => sum + (c.role_match_score ?? 0), 0) / scored.length)
         : null;
-      const hireRate = interviewed ? Math.round((hired / interviewed) * 100) : 0;
-      return { job, interviewed, hireRate, avgMatch };
+      const selectionRate = interviewed ? Math.round((selected / interviewed) * 100) : 0;
+      return { job, interviewed, selectionRate, avgMatch };
     });
   }, [jobs, candidates]);
 
@@ -224,12 +224,12 @@ export default function AnalyticsPage() {
               <div className="card p-4">
                 <div className="text-sm font-bold text-ink mb-4">Performance by Role</div>
                 <div className="space-y-3">
-                  {perRole.map(({ job, interviewed, hireRate, avgMatch }) => (
+                  {perRole.map(({ job, interviewed, selectionRate, avgMatch }) => (
                     <div key={job.id} className="flex items-center justify-between border-t border-border pt-3 first:border-t-0 first:pt-0">
                       <div>
                         <div className="text-sm font-medium text-ink">{job.title}</div>
                         <div className="text-xs text-ink-2">
-                          {interviewed} interview{interviewed === 1 ? "" : "s"} · Hire rate: {hireRate}%
+                          {interviewed} interview{interviewed === 1 ? "" : "s"} · Selection rate: {selectionRate}%
                         </div>
                       </div>
                       <div className="text-lg font-bold text-ink">{avgMatch !== null ? `${avgMatch}%` : "—"}</div>

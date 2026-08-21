@@ -1,12 +1,15 @@
 import { cn } from "@/lib/utils";
 import type { CandidateStage, JobStatus } from "@/types";
 
+
+
 const STAGE_STYLES: Record<CandidateStage, string> = {
   applied: "bg-info-dim text-info",
   screened: "bg-purple-dim text-purple",
   shortlisted: "bg-amber-dim text-amber",
   interview_scheduled: "bg-accent-dim text-accent-light",
   interviewed: "bg-teal-dim text-teal",
+  recommended: "bg-teal-dim text-teal",
   hired: "bg-teal-dim text-teal",
   rejected: "bg-danger-dim text-danger",
 };
@@ -14,9 +17,10 @@ const STAGE_STYLES: Record<CandidateStage, string> = {
 const STAGE_LABELS: Record<CandidateStage, string> = {
   applied: "Applied",
   screened: "Screened",
-  shortlisted: "Shortlisted",
+  shortlisted: "Email Sent",
   interview_scheduled: "Interview Scheduled",
   interviewed: "Interviewed",
+  recommended: "Selected",
   hired: "Hired",
   rejected: "Rejected",
 };

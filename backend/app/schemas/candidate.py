@@ -73,3 +73,4 @@ class CandidateDetailResponse(BaseModel):
     role_match_score: int | None = None
     applied_at: str
     has_interview: bool = False
+    contacted: bool = False

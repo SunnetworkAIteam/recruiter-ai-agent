@@ -132,6 +132,13 @@ class Settings(BaseSettings):
     # "Sync from Vapi" — it now runs automatically in the background.
     BACKGROUND_SYNC_INTERVAL_SECONDS: int = 10
 
+    # Any interview stuck at IN_PROGRESS with no vapi_call_id for longer
+    # than this never actually connected to Vapi (denied mic permission,
+    # closed tab, connection failure, etc.) and will never self-resolve —
+    # nothing else revisits it. Marking it ABANDONED after this window is
+    # a factual statement (it never connected), not a judgment call.
+    STUCK_IN_PROGRESS_THRESHOLD_MINUTES: int = 30
+
     # --- Resend (Email) ---
     # Optional now — email currently sends via Gmail SMTP (see
     # GMAIL_ADDRESS/GMAIL_APP_PASSWORD below). These stay here, made

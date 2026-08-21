@@ -123,17 +123,15 @@ def process_completed_transcript(db, interview: Interview, transcript: str, vapi
     # PATCH /candidates/{id}/stage — this just sets the starting point
     # instead of leaving every interviewed candidate stuck at
     # INTERVIEWED with no next step.
+    
     if candidate:
         if interview.overall_score is not None:
             if interview.overall_score >= settings.AUTO_SHORTLIST_SCORE_THRESHOLD:
-                candidate.stage = CandidateStage.SHORTLISTED
+                candidate.stage = CandidateStage.RECOMMENDED
             else:
                 candidate.stage = CandidateStage.REJECTED
         else:
             candidate.stage = CandidateStage.INTERVIEWED
-
-    db.commit()
-
 
     if candidate and job:
         email_service.send_interview_followup(
@@ -232,6 +230,26 @@ def run_pending_syncs(db) -> int:
         logger.info("background_sync_completed", interview_id=interview.id)
     return synced_count
 
+def abandon_stale_unconnected_interviews(db) -> int:
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.STUCK_IN_PROGRESS_THRESHOLD_MINUTES)
+    stale = (
+        db.query(Interview)
+        .filter(
+            Interview.status == InterviewStatus.IN_PROGRESS,
+            Interview.vapi_call_id.is_(None),
+            Interview.updated_at < cutoff,
+        )
+        .all()
+    )
+    count = 0
+    for interview in stale:
+        interview.status = InterviewStatus.ABANDONED
+        count += 1
+    if count:
+        db.commit()
+        logger.info("abandoned_stale_unconnected_interviews", count=count)
+    return count
+
 
 def send_pending_reminders(db) -> int:
     """
@@ -299,6 +317,9 @@ async def background_sync_loop() -> None:
         db = SessionLocal()
         try:
             count = run_pending_syncs(db)
+            abandoned_count = abandon_stale_unconnected_interviews(db)
+            if abandoned_count:
+                logger.info("background_abandon_pass_completed", abandoned_count=abandoned_count)
             if count:
                 logger.info("background_sync_pass_completed", synced_count=count)
         except Exception as exc:

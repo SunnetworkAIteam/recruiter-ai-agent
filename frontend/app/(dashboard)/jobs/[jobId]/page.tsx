@@ -26,7 +26,8 @@ const STAGE_LABELS: { key: string; label: string; color: string }[] = [
   { key: "interview_scheduled", label: "Interviewing", color: "bg-amber text-white" },
   { key: "interviewed", label: "Interviewed", color: "bg-orange-500 text-white" },
   { key: "rejected", label: "Rejected", color: "bg-red-600 text-white" },
-  { key: "hired", label: "Selected", color: "bg-green-600 text-white" },
+  { key: "recommended", label: "Selected", color: "bg-green-600 text-white" },
+ 
 ];
 
 const STAGE_BADGE_STYLES: Record<string, string> = {
@@ -36,7 +37,8 @@ const STAGE_BADGE_STYLES: Record<string, string> = {
   interview_scheduled: "bg-accent/20 text-accent-light",
   interviewed: "bg-accent/20 text-accent-light",
   rejected: "bg-danger/20 text-danger",
-  hired: "bg-teal/20 text-teal",
+  recommended: "bg-teal/20 text-teal",
+
 };
 
 export default function JobPipelinePage() {

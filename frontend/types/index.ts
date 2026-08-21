@@ -21,6 +21,7 @@ export type CandidateStage =
   | "shortlisted"
   | "interview_scheduled"
   | "interviewed"
+  | "recommended"
   | "rejected"
   | "hired";
 
@@ -36,6 +37,7 @@ export interface CandidateDetail {
   communication_score: number | null;
   role_match_score: number | null;
   has_interview: boolean;
+  contacted: boolean;
   applied_at: string;
 }
 
