@@ -20,7 +20,7 @@ const STAGE_LABELS: Record<CandidateStage, string> = {
   shortlisted: "Email Sent",
   interview_scheduled: "Interview Scheduled",
   interviewed: "Interviewed",
-  recommended: "Selected",
+  recommended: "Shortlisted",
   hired: "Hired",
   rejected: "Rejected",
 };

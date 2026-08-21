@@ -17,7 +17,7 @@ const STAGE_FILTERS: { value: CandidateStage | "all"; label: string }[] = [
   { value: "shortlisted", label: "Email Sent" },
   { value: "interview_scheduled", label: "Interview Scheduled" },
   { value: "interviewed", label: "Interviewed" },
-  { value: "recommended", label: "Selected" },
+  { value: "recommended", label: "Shortlisted" },
   { value: "rejected", label: "Rejected" },
 ];
 
@@ -261,7 +261,7 @@ export default function CandidatesPage() {
                     <td className="px-4 py-3">
                       <StageBadge stage={c.stage} />
                     </td>
-                    
+
                     <td className="px-4 py-3">
                       <button
                         onClick={() => handleToggleContacted(c.id, c.contacted)}

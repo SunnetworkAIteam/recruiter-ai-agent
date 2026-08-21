@@ -26,7 +26,7 @@ const STAGE_LABELS: { key: string; label: string; color: string }[] = [
   { key: "interview_scheduled", label: "Interviewing", color: "bg-amber text-white" },
   { key: "interviewed", label: "Interviewed", color: "bg-orange-500 text-white" },
   { key: "rejected", label: "Rejected", color: "bg-red-600 text-white" },
-  { key: "selected", label: "Selected", color: "bg-green-600 text-white" },
+  { key: "selected", label: "Shortlisted", color: "bg-green-600 text-white" },
 
  
 ];
