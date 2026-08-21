@@ -74,7 +74,8 @@ export default function CandidatesPage() {
 
   const kpis = useMemo(() => {
     const list = candidates ?? [];
-    const shortlisted = list.filter((c) => c.stage === "shortlisted").length;
+    const emailSentOrBeyond = new Set(["shortlisted", "interview_scheduled", "interviewed", "recommended", "rejected"]);
+    const shortlisted = list.filter((c) => emailSentOrBeyond.has(c.stage)).length;
     const scored = list.filter((c) => c.role_match_score !== null);
     const avgMatch = scored.length
       ? Math.round(scored.reduce((sum, c) => sum + (c.role_match_score ?? 0), 0) / scored.length)
