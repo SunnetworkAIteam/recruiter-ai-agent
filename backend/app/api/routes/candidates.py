@@ -80,11 +80,24 @@ async def apply_to_job(
     """
     payload = CandidateCreateRequest(job_id=job_id, full_name=full_name, email=email, phone=phone)
 
+
     job = db.query(Job).filter(Job.id == payload.job_id).first()
     if job is None:
         raise ResourceNotFoundError("Job not found")
     if job.status.value != "open":
         raise ValidationFailedError("This job is no longer accepting applications")
+
+    # Prevent duplicate applications — same email applying to the same
+    # job again (retry after a slow response, accidental resubmit, etc.)
+    # should not create a second candidate row. Return the existing one
+    # instead of re-parsing the resume and re-running Claude scoring.
+    existing = (
+        db.query(Candidate)
+        .filter(Candidate.job_id == job.id, func.lower(Candidate.email) == payload.email.lower())
+        .first()
+    )
+    if existing is not None:
+        return CandidateResponse(id=existing.id, job_id=existing.job_id, full_name=existing.full_name, email=existing.email, stage=existing.stage)
 
     content = await resume.read()
     resume_text = extract_text_from_resume(resume.filename or "resume", content)
