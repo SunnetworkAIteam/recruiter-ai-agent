@@ -121,17 +121,31 @@ def _ensure_interview_is_startable(db: Session, interview: Interview) -> None:
     audit trail (tampering/reuse attempts), distinct from the scoring
     audit trail (probabilistic decisions) logged elsewhere.
     """
-    if interview.status in (InterviewStatus.COMPLETED, InterviewStatus.IN_PROGRESS, InterviewStatus.ABANDONED):
+    # Only block when there's real evidence of an actual attempt: a fully
+    # completed interview, or an IN_PROGRESS/ABANDONED interview that
+    # already has a vapi_call_id (meaning a real Vapi call previously
+    # connected). If status is IN_PROGRESS or ABANDONED but vapi_call_id
+    # is still None, the previous attempt never actually reached Vapi —
+    # mic permission denied, closed tab, network hiccup — and the
+    # candidate deserves a genuine retry, not a permanent lockout. This
+    # was locking out real candidates who had a failed first attempt.
+    blocks_retry = interview.status == InterviewStatus.COMPLETED or (
+        interview.status in (InterviewStatus.IN_PROGRESS, InterviewStatus.ABANDONED)
+        and interview.vapi_call_id is not None
+    )
+    if blocks_retry:
         record_decision(
             db,
             entity_type="interview",
             entity_id=interview.id,
             step_name="interview_link_access_check",
             step_type=DecisionStepType.DETERMINISTIC,
-            outcome=f"rejected: status is already {interview.status.value}, link reuse blocked",
+            outcome=f"rejected: status is already {interview.status.value} with a connected call, link reuse blocked",
         )
         db.commit()
         raise InterviewLinkInvalidError("This interview link has already been used.")
+
+
     if interview.expires_at:
         expires_at = interview.expires_at
         # SQLite (used in tests) doesn't preserve tzinfo on round-trip the
