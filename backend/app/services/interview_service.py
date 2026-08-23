@@ -329,7 +329,7 @@ async def background_sync_loop() -> None:
 
         db = SessionLocal()
         try:
-            reminder_count = send_pending_reminders(db)
+            reminder_count = await asyncio.to_thread(send_pending_reminders, db)
             if reminder_count:
                 logger.info("reminder_emails_sent", count=reminder_count)
         except Exception as exc:
