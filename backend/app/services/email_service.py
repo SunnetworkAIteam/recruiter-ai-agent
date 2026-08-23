@@ -40,7 +40,7 @@ def _send(to: str, subject: str, html: str, *, context: dict) -> bool:
         msg["To"] = to
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
             server.starttls()
             server.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
             server.sendmail(settings.GMAIL_ADDRESS, [to], msg.as_string())
