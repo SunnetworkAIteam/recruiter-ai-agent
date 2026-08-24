@@ -35,6 +35,7 @@ import hmac
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthenticatedUser, require_org_membership
@@ -228,14 +229,25 @@ def start_interview(request: Request, interview_id: str, db: Session = Depends(g
     db.commit()
     return {"started": True}
 
-def _to_recruiter_response(interview: Interview, candidate_name: str, job_title: str, db: Session, include_recording: bool = False) -> InterviewRecruiterResponse:
-    violation_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
-    identity_mismatch_flagged = (
-        db.query(InterviewEvent)
-        .filter(InterviewEvent.interview_id == interview.id, InterviewEvent.event_type == "identity_mismatch")
-        .count()
-        > 0
-    )
+
+def _to_recruiter_response(
+    interview: Interview, candidate_name: str, job_title: str, db: Session,
+    include_recording: bool = False,
+    violation_count: int | None = None,
+    identity_mismatch_flagged: bool | None = None,
+) -> InterviewRecruiterResponse:
+    # If not pre-computed by the caller (batched for the list endpoint —
+    # see list_interviews), fall back to per-row queries. Used by the
+    # single-interview detail endpoint, where one extra query is fine.
+    if violation_count is None:
+        violation_count = db.query(InterviewEvent).filter(InterviewEvent.interview_id == interview.id).count()
+    if identity_mismatch_flagged is None:
+        identity_mismatch_flagged = (
+            db.query(InterviewEvent)
+            .filter(InterviewEvent.interview_id == interview.id, InterviewEvent.event_type == "identity_mismatch")
+            .count()
+            > 0
+        )
     return InterviewRecruiterResponse(
         id=interview.id,
         candidate_id=interview.candidate_id,
@@ -253,6 +265,7 @@ def _to_recruiter_response(interview: Interview, candidate_name: str, job_title:
         ai_report=interview.ai_report,
     )
 
+
 @router.get("/interviews", response_model=list[InterviewRecruiterResponse])
 def list_interviews(
     db: Session = Depends(get_db),
@@ -266,7 +279,33 @@ def list_interviews(
         .order_by(Interview.created_at.desc())
         .all()
     )
-    return [_to_recruiter_response(iv, name, title, db) for iv, name, title in rows]
+
+    interview_ids = [iv.id for iv, _, _ in rows]
+    violation_counts = dict(
+        db.query(InterviewEvent.interview_id, func.count(InterviewEvent.id))
+        .filter(InterviewEvent.interview_id.in_(interview_ids))
+        .group_by(InterviewEvent.interview_id)
+        .all()
+    )
+    identity_mismatch_ids = {
+        row[0]
+        for row in db.query(InterviewEvent.interview_id)
+        .filter(
+            InterviewEvent.interview_id.in_(interview_ids),
+            InterviewEvent.event_type == "identity_mismatch",
+        )
+        .distinct()
+        .all()
+    }
+
+    return [
+        _to_recruiter_response(
+            iv, name, title, db,
+            violation_count=violation_counts.get(iv.id, 0),
+            identity_mismatch_flagged=iv.id in identity_mismatch_ids,
+        )
+        for iv, name, title in rows
+    ]
 
 
 @router.get("/interviews/{interview_id}/violations", response_model=list[InterviewViolationEntry])
@@ -308,17 +347,48 @@ def get_interview(
     db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(require_org_membership),
 ):
-    row = (
+
+    rows = (
         db.query(Interview, Candidate.full_name, Job.title)
         .join(Candidate, Candidate.id == Interview.candidate_id)
         .join(Job, Job.id == Candidate.job_id)
-        .filter(Interview.id == interview_id, Job.owner_org_id == user.org_id)
-        .first()
+        .filter(Job.owner_org_id == user.org_id)
+        .order_by(Interview.created_at.desc())
+        .all()
     )
-    if row is None:
-        raise ResourceNotFoundError("Interview not found")
-    interview, candidate_name, job_title = row
-    return _to_recruiter_response(interview, candidate_name, job_title, db, include_recording=True)
+
+    # Batch-compute violation counts and identity-mismatch flags for every
+    # interview in one query each, instead of 2 queries per row (was
+    # causing 1000+ individual DB round-trips on this page with 600+
+    # interviews — the real cause of the slow load).
+    interview_ids = [iv.id for iv, _, _ in rows]
+    violation_counts = dict(
+        db.query(InterviewEvent.interview_id, func.count(InterviewEvent.id))
+        .filter(InterviewEvent.interview_id.in_(interview_ids))
+        .group_by(InterviewEvent.interview_id)
+        .all()
+    )
+    identity_mismatch_ids = {
+        row[0]
+        for row in db.query(InterviewEvent.interview_id)
+        .filter(
+            InterviewEvent.interview_id.in_(interview_ids),
+            InterviewEvent.event_type == "identity_mismatch",
+        )
+        .distinct()
+        .all()
+    }
+
+    return [
+        _to_recruiter_response(
+            iv, name, title, db,
+            violation_count=violation_counts.get(iv.id, 0),
+            identity_mismatch_flagged=iv.id in identity_mismatch_ids,
+        )
+        for iv, name, title in rows
+    ]
+
+
 
 
 @router.post("/interviews/{interview_id}/events", status_code=status.HTTP_201_CREATED)

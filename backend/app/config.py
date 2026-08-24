@@ -81,9 +81,9 @@ class Settings(BaseSettings):
     # constantly re-sending links because candidates miss that window —
     # 5 days is a more forgiving default. Configurable, not hardcoded,
     # since this is a product/ops decision that may change.
-    INTERVIEW_LINK_EXPIRY_DAYS: int = 5
+    INTERVIEW_LINK_EXPIRY_DAYS: int = 12
 
-    REMINDER_INTERVAL_DAYS: int = 2
+    REMINDER_INTERVAL_DAYS: int = 3
 
     # Automatically send an interview invite when a candidate's resume
     # role_match_score meets or exceeds this threshold — no recruiter
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # choice with real consequences (see decision_log entries tagged
     # "auto_invite_threshold" for the audit trail of every automatic
     # decision this setting causes) — not a default to leave unexamined.
-    AUTO_INVITE_SCORE_THRESHOLD: int = 25
+    AUTO_INVITE_SCORE_THRESHOLD: int = 20
 
     # Real display name shown to candidates (emails, interview room) —
     # NOT the Clerk org_id. Using the raw org_id here was a real bug:
@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     # hiccups shouldn't end an interview the same way deliberately
     # switching tabs does.
     MAX_INTEGRITY_VIOLATIONS: int = 5
-    MAX_NO_FACE_VIOLATIONS: int = 2
+    MAX_NO_FACE_VIOLATIONS: int = 3
 
     
     # Points deducted from overall_score per logged violation, applied
