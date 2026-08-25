@@ -348,45 +348,17 @@ def get_interview(
     user: AuthenticatedUser = Depends(require_org_membership),
 ):
 
-    rows = (
+    row = (
         db.query(Interview, Candidate.full_name, Job.title)
         .join(Candidate, Candidate.id == Interview.candidate_id)
         .join(Job, Job.id == Candidate.job_id)
-        .filter(Job.owner_org_id == user.org_id)
-        .order_by(Interview.created_at.desc())
-        .all()
+        .filter(Interview.id == interview_id, Job.owner_org_id == user.org_id)
+        .first()
     )
-
-    # Batch-compute violation counts and identity-mismatch flags for every
-    # interview in one query each, instead of 2 queries per row (was
-    # causing 1000+ individual DB round-trips on this page with 600+
-    # interviews — the real cause of the slow load).
-    interview_ids = [iv.id for iv, _, _ in rows]
-    violation_counts = dict(
-        db.query(InterviewEvent.interview_id, func.count(InterviewEvent.id))
-        .filter(InterviewEvent.interview_id.in_(interview_ids))
-        .group_by(InterviewEvent.interview_id)
-        .all()
-    )
-    identity_mismatch_ids = {
-        row[0]
-        for row in db.query(InterviewEvent.interview_id)
-        .filter(
-            InterviewEvent.interview_id.in_(interview_ids),
-            InterviewEvent.event_type == "identity_mismatch",
-        )
-        .distinct()
-        .all()
-    }
-
-    return [
-        _to_recruiter_response(
-            iv, name, title, db,
-            violation_count=violation_counts.get(iv.id, 0),
-            identity_mismatch_flagged=iv.id in identity_mismatch_ids,
-        )
-        for iv, name, title in rows
-    ]
+    if row is None:
+        raise ResourceNotFoundError("Interview not found")
+    interview, candidate_name, job_title = row
+    return _to_recruiter_response(interview, candidate_name, job_title, db, include_recording=True)
 
 
 
