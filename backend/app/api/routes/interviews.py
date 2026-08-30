@@ -504,6 +504,7 @@ async def vapi_webhook(request: Request, db: Session = Depends(get_db)):
     interview_service.process_completed_transcript(
         db, interview, transcript, vapi_call_id=vapi_call_id, recording_url=recording_url
     )
+    db.commit()
 
     return {"received": True, "handled": True}
 
@@ -572,5 +573,6 @@ def sync_interview_from_vapi(
     interview_service.process_completed_transcript(
         db, interview, transcript, vapi_call_id=interview.vapi_call_id, recording_url=recording_url
     )
+    db.commit()
     return {"synced": True}
 
