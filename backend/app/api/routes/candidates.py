@@ -124,7 +124,6 @@ async def apply_to_job(
     candidate.selfie_storage_path = storage_service.upload_selfie(candidate.id, selfie_content)
 
     try:
-        raise RuntimeError("Resume scoring temporarily disabled — cost investigation in progress")
         score_result = claude_service.score_resume(
             resume_text=resume_text,
             job_title=job.title,
