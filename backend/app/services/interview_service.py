@@ -236,6 +236,7 @@ def run_pending_syncs(db) -> int:
 
         recording_url = _extract_recording_url(call_data)
         process_completed_transcript(db, interview, transcript, vapi_call_id=interview.vapi_call_id, recording_url=recording_url)
+        db.commit()
         synced_count += 1
         logger.info("background_sync_completed", interview_id=interview.id)
     return synced_count
