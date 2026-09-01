@@ -134,12 +134,22 @@ def process_completed_transcript(db, interview: Interview, transcript: str, vapi
             candidate.stage = CandidateStage.INTERVIEWED
 
     if candidate and job:
-        email_service.send_interview_followup(
-            to_email=candidate.email,
-            candidate_name=candidate.full_name,
-            job_title=job.title,
-            company_name=settings.COMPANY_DISPLAY_NAME,
-        )
+        if candidate.stage == CandidateStage.RECOMMENDED:
+            email_service.send_interview_followup(
+                to_email=candidate.email,
+                candidate_name=candidate.full_name,
+                job_title=job.title,
+                company_name=settings.COMPANY_DISPLAY_NAME,
+            )
+        elif candidate.stage == CandidateStage.REJECTED:
+            email_service.send_interview_rejection(
+                to_email=candidate.email,
+                candidate_name=candidate.full_name,
+                job_title=job.title,
+                company_name=settings.COMPANY_DISPLAY_NAME,
+            )
+        # candidate.stage == INTERVIEWED (no score available) intentionally
+        # sends nothing — no pass/fail email should go out without a real score.
 
 
 def fetch_call_from_vapi(vapi_call_id: str) -> dict:
@@ -269,7 +279,7 @@ def send_pending_reminders(db) -> int:
         .filter(
             Interview.status == InterviewStatus.SCHEDULED,
             Interview.expires_at > now,
-            (Interview.last_reminder_sent_at.is_(None)) | (Interview.last_reminder_sent_at <= cutoff),
+            Interview.last_reminder_sent_at.is_(None),
             Interview.created_at <= cutoff,
         )
         .all()

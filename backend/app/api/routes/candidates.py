@@ -116,6 +116,7 @@ async def apply_to_job(
 
     db.add(candidate)
     db.flush()  # assigns candidate.id without committing yet
+    db.commit()
     storage_path = storage_service.upload_resume(candidate.id, resume.filename or "resume", content)
     candidate.resume_storage_path = storage_path
 

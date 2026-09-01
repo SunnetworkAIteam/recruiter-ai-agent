@@ -94,19 +94,58 @@ def send_interview_invite(
     return _send(to_email, subject, html, context={"template": "interview_invite"})
 
 
+
 def send_interview_followup(
     *, to_email: str, candidate_name: str, job_title: str, company_name: str
 ) -> bool:
-    subject = f"Thanks for interviewing for {job_title}"
+    subject = f"Update on your application for {job_title} at {company_name}"
     html = f"""
-    <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
-      <h2 style="margin-bottom: 4px;">Interview complete</h2>
-      <p>Hi {candidate_name},</p>
-      <p>
-        Thanks for completing your interview for the <strong>{job_title}</strong> role
-        at {company_name}. Our team is reviewing your application, and we will be in touch with you regarding the next steps soon.
-      </p>
-      <p>We appreciate the time you took to speak with us.</p>
+    <div style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a; border: 1px solid #eaeaea; border-radius: 10px; overflow: hidden;">
+      <div style="background:#1E2A5A; padding: 24px 32px;">
+        <span style="color:#ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">AmeriSource</span>
+      </div>
+      <div style="padding: 32px;">
+        <h2 style="margin: 0 0 4px 0; font-size: 22px;">You've been selected for the next stage</h2>
+        <p style="margin-top: 16px;">Dear {candidate_name},</p>
+        <p>
+          Thank you for completing your screening interview for the <strong>{job_title}</strong> position at
+          <strong>{company_name}</strong>. We are pleased to inform you that you have successfully completed the
+          initial screening and have been selected for the next stage of the recruitment process.
+        </p>
+        <p>
+          Our recruiting team will be in touch shortly with further details on the next steps.
+        </p>
+        <p>We appreciate the time and effort you invested in this process.</p>
+        <p>Best regards,<br/>The {company_name} Recruiting Team</p>
+      </div>
+      <div style="background:#f7f7f9; padding: 16px 32px; font-size: 12px; color: #999;">
+        &copy; {company_name} &middot; 
+      </div>
     </div>
     """
     return _send(to_email, subject, html, context={"template": "interview_followup"})
+
+def send_interview_rejection(
+    *, to_email: str, candidate_name: str, job_title: str, company_name: str
+) -> bool:
+    subject = f"Update on your application for {job_title}"
+    html = f"""
+    <div style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a; border: 1px solid #eaeaea; border-radius: 10px; overflow: hidden;">
+      <div style="background:#1E2A5A; padding: 24px 32px;">
+        <span style="color:#ffffff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">AmeriSource</span>
+      </div>
+      <div style="padding: 32px;">
+        <h2 style="margin: 0 0 4px 0; font-size: 22px;">Thank you for your time</h2>
+        <p style="margin-top: 16px;">Hi {candidate_name},</p>
+        <p>
+          Thank you for taking the time to interview for the <strong>{job_title}</strong> role at <strong>{company_name}</strong>.
+          We appreciate your time and interest in the opportunity. After careful consideration, we’ve decided to move forward with other candidates 
+          whose experience more closely aligns with the requirements of the role.
+        </p>
+      </div>
+      <div style="background:#f7f7f9; padding: 16px 32px; font-size: 12px; color: #999;">
+        &copy; {company_name} &middot;
+      </div>
+    </div>
+    """
+    return _send(to_email, subject, html, context={"template": "interview_rejection"})

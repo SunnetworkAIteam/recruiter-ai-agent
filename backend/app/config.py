@@ -66,7 +66,7 @@ class Settings(BaseSettings):
 
     # --- Anthropic (Claude) ---
     ANTHROPIC_API_KEY: str = Field(..., description="Claude API key")
-    CLAUDE_MODEL: str = "claude-sonnet-4-6"
+    CLAUDE_MODEL: str = "claude-haiku-4-5"
     CLAUDE_MAX_TOKENS: int = 2048
     # Hard ceiling on Claude spend per resume-scoring call, enforced in code, not just monitored after the fact.
     CLAUDE_MAX_RETRIES: int = 3
