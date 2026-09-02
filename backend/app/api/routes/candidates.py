@@ -252,6 +252,7 @@ def list_candidates(
             has_interview=candidate.id in candidate_ids_with_interview,
             applied_at=candidate.created_at.isoformat(),
             contacted=candidate.contacted,
+            round_status=candidate.round_status,
         )
         for candidate, job_title, score in rows
     ]
@@ -492,7 +493,33 @@ def update_candidate_contacted(
     db.commit()
     return {"id": candidate.id, "contacted": candidate.contacted}
 
+@router.patch("/{candidate_id}/round-status")
+def update_candidate_round_status(
+    candidate_id: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(require_org_membership),
+):
+    """
+    Recruiter-only: manually track which interview round a candidate has
+    reached. Purely informational — does not touch the automated `stage`
+    field, does not trigger any email. Same org-scoping as
+    update_candidate_contacted above.
+    """
+    candidate = (
+        db.query(Candidate)
+        .join(Job, Job.id == Candidate.job_id)
+        .filter(Candidate.id == candidate_id, Job.owner_org_id == user.org_id)
+        .first()
+    )
+    if candidate is None:
+        raise ResourceNotFoundError("Candidate not found")
 
+    round_status = payload.get("round_status")
+    valid_values = {"selected_r1", "selected_r2", "hired", "rejected", None}
+    if round_status not in valid_values:
+        raise ValidationFailedError("Invalid round_status")
 
-
-
+    candidate.round_status = round_status
+    db.commit()
+    return {"id": candidate.id, "round_status": candidate.round_status}

@@ -47,6 +47,15 @@ class Candidate(Base, TimestampMixin):
     )
     contacted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    round_status: Mapped[str | None] = mapped_column(
+        Enum(
+            "selected_r1", "selected_r2", "hired", "rejected",
+            name="candidate_round_status",
+        ),
+        nullable=True,
+        default=None,
+    )
+
     # Consent flags — required before ANY biometric/video processing happens.
     # These must be explicitly set true by a real consent action, never
     # defaulted true. See ConsentRecord for the full audit trail.

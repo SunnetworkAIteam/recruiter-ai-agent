@@ -26,6 +26,8 @@ export type CandidateStage =
   | "hired";
 
 
+export type CandidateRoundStatus = "selected_r1" | "selected_r2" | "hired" | "rejected" | null;
+
 export interface CandidateDetail {
   id: string;
   job_id: string;
@@ -38,6 +40,7 @@ export interface CandidateDetail {
   role_match_score: number | null;
   has_interview: boolean;
   contacted: boolean;
+  round_status: CandidateRoundStatus;
   applied_at: string;
 }
 

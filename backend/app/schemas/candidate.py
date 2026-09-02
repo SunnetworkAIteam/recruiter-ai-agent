@@ -74,3 +74,4 @@ class CandidateDetailResponse(BaseModel):
     applied_at: str
     has_interview: bool = False
     contacted: bool = False
+    round_status: str | None = None

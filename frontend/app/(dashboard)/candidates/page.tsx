@@ -11,6 +11,16 @@ import type { CandidateDetail, CandidateStage } from "@/types";
 
 type ContactedFilter = "all" | "contacted" | "not_contacted";
 
+type RoundStatus = "selected_r1" | "selected_r2" | "hired" | "rejected" | null;
+
+const ROUND_STATUS_OPTIONS: { value: RoundStatus; label: string }[] = [
+  { value: null, label: "Not Yet Decided" },
+  { value: "selected_r1", label: "Selected for R1" },
+  { value: "selected_r2", label: "Selected for R2" },
+  { value: "hired", label: "Hired" },
+  { value: "rejected", label: "Rejected" },
+];
+
 const STAGE_FILTERS: { value: CandidateStage | "all"; label: string }[] = [
   { value: "all", label: "All Statuses" },
   { value: "screened", label: "Screened" },
@@ -29,6 +39,7 @@ export default function CandidatesPage() {
   const [stageFilter, setStageFilter] = useState<CandidateStage | "all">("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [contactedFilter, setContactedFilter] = useState<ContactedFilter>("all");
+  const [roundStatusFilter, setRoundStatusFilter] = useState<string>("all");
   const [schedulingId, setSchedulingId] = useState<string | null>(null);
   const [scheduledIds, setScheduledIds] = useState<Set<string>>(new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -68,9 +79,16 @@ export default function CandidatesPage() {
         contactedFilter === "all" ||
         (contactedFilter === "contacted" && c.contacted) ||
         (contactedFilter === "not_contacted" && !c.contacted);
-      return matchesSearch && matchesStage && matchesRole && matchesContacted;
+      const matchesRoundStatus =
+        roundStatusFilter === "all" ||
+        (roundStatusFilter === "none" && !c.round_status) ||
+        c.round_status === roundStatusFilter;
+      return matchesSearch && matchesStage && matchesRole && matchesContacted && matchesRoundStatus;
     });
-  }, [candidates, search, stageFilter, roleFilter, contactedFilter]);
+  }, [candidates, search, stageFilter, roleFilter, contactedFilter, roundStatusFilter]);
+
+    
+
 
   const kpis = useMemo(() => {
     const list = candidates ?? [];
@@ -108,6 +126,19 @@ export default function CandidatesPage() {
       setCandidates((prev) => prev?.map((c) => (c.id === candidateId ? { ...c, contacted: !current } : c)) ?? prev);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to update contacted status.");
+    }
+  }
+  async function handleUpdateRoundStatus(candidateId: string, newStatus: RoundStatus) {
+    try {
+      await call(`/candidates/${candidateId}/round-status`, {
+        method: "PATCH",
+        body: { round_status: newStatus },
+      });
+      setCandidates((prev) =>
+        prev?.map((c) => (c.id === candidateId ? { ...c, round_status: newStatus } : c)) ?? prev
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update round status.");
     }
   }
 
@@ -212,8 +243,20 @@ export default function CandidatesPage() {
               <option value="contacted">Contacted</option>
               <option value="not_contacted">Not Yet Contacted</option>
             </select>
-          </div>
 
+            <select
+              value={roundStatusFilter}
+              onChange={(e) => setRoundStatusFilter(e.target.value)}
+              className="input-field max-w-[180px]"
+            >
+              <option value="all">All Round Status</option>
+              <option value="none">Not Yet Decided</option>
+              <option value="selected_r1">Selected for R1</option>
+              <option value="selected_r2">Selected for R2</option>
+              <option value="hired">Hired</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
 
           {error && (
             <div className="flex items-center gap-2 text-danger text-sm p-6">
@@ -245,6 +288,7 @@ export default function CandidatesPage() {
                   <th className="px-4 py-3 font-medium">Job</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Contacted</th>
+                  <th className="px-4 py-3 font-medium">Round Status</th>
                   <th className="px-4 py-3 font-medium">Resume Score</th>
                   <th className="px-4 py-3 font-medium">Resume</th>
                   <th className="px-4 py-3 font-medium"></th>
@@ -273,6 +317,23 @@ export default function CandidatesPage() {
                         {c.contacted ? "Contacted" : "Not Yet"}
                       </button>
                     </td>
+
+                    <td className="px-4 py-3">
+                      <select
+                        value={c.round_status ?? ""}
+                        onChange={(e) =>
+                          handleUpdateRoundStatus(c.id, (e.target.value || null) as RoundStatus)
+                        }
+                        className="input-field max-w-[160px] text-xs"
+                      >
+                        {ROUND_STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.label} value={opt.value ?? ""}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
 
                     <td className="px-4 py-3 font-mono font-semibold text-ink">
                       {c.role_match_score !== null ? `${c.role_match_score}%` : "—"}
