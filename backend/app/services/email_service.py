@@ -108,9 +108,9 @@ def send_interview_followup(
         <h2 style="margin: 0 0 4px 0; font-size: 22px;">You've been selected for the next stage</h2>
         <p style="margin-top: 16px;">Dear {candidate_name},</p>
         <p>
-          Thank you for completing your screening interview for the <strong>{job_title}</strong> position at
-          <strong>{company_name}</strong>. We are pleased to inform you that you have successfully completed the
-          initial screening and have been selected for the next stage of the recruitment process.
+          Thank you for completing your screening interview with <strong>{company_name}</strong> for the
+          <strong>{job_title}</strong> position. We are pleased to inform you that you have successfully completed
+          the initial screening and have been selected for the next stage of the recruitment process.
         </p>
         <p>
           Our recruiting team will be in touch shortly with further details on the next steps.
@@ -138,7 +138,7 @@ def send_interview_rejection(
         <h2 style="margin: 0 0 4px 0; font-size: 22px;">Thank you for your time</h2>
         <p style="margin-top: 16px;">Hi {candidate_name},</p>
         <p>
-          Thank you for taking the time to interview for the <strong>{job_title}</strong> role at <strong>{company_name}</strong>.
+          Thank you for taking the time to interview with <strong>{company_name}</strong> for the <strong>{job_title}</strong> position.
           We appreciate your time and interest in the opportunity. After careful consideration, we’ve decided to move forward with other candidates 
           whose experience more closely aligns with the requirements of the role.
         </p>
