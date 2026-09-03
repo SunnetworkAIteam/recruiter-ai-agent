@@ -59,15 +59,35 @@ def schedule_interview_for_candidate(db, candidate: Candidate, job: Job, *, fron
     return interview
 
 
+
 def process_completed_transcript(db, interview: Interview, transcript: str, vapi_call_id: str | None = None, recording_url: str | None = None) -> None:
     """
     Saves a transcript, scores it via Claude, advances the candidate's
     stage, and sends the follow-up email. Shared by the webhook handler
     and the active-sync endpoint — see module docstring.
+
+    ATOMIC CLAIM: the very first thing this function does is try to
+    claim this interview via an UPDATE ... WHERE scoring_started_at IS
+    NULL. Only one caller can win that race, even if the webhook fires
+    twice, the background loop and the webhook overlap, or a fast
+    provider retry arrives before the first attempt commits. Losers
+    return immediately — no transcript write, no Claude call, no email.
     """
+    from datetime import datetime, timezone
+    from sqlalchemy import update
     from app.models.decision_log import DecisionStepType
     from app.services import claude_service
     from app.services.decision_log_service import record_decision
+
+    claim = db.execute(
+        update(Interview)
+        .where(Interview.id == interview.id, Interview.scoring_started_at.is_(None))
+        .values(scoring_started_at=datetime.now(timezone.utc))
+    )
+    db.commit()
+    if claim.rowcount == 0:
+        logger.info("interview_processing_already_claimed", interview_id=interview.id)
+        return
 
     if vapi_call_id:
         interview.vapi_call_id = vapi_call_id

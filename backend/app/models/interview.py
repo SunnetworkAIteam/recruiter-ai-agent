@@ -46,6 +46,14 @@ class Interview(Base, TimestampMixin):
     overall_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ai_report: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Atomic scoring claim: set the instant a scoring attempt begins, via
+    # an UPDATE ... WHERE scoring_started_at IS NULL, never a plain
+    # assignment. This is what makes two near-simultaneous scoring
+    # attempts for the same interview structurally impossible — the
+    # second one's WHERE clause simply won't match, so it never reaches
+    # the Claude API call at all. NULL means never attempted.
+    scoring_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     candidate = relationship("Candidate", back_populates="interviews")
     events = relationship("InterviewEvent", back_populates="interview", cascade="all, delete-orphan")
 
