@@ -267,11 +267,11 @@ export default function InterviewRoomPage() {
 
   async function handleConsentAndContinue() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       setState("ready");
     } catch {
-      setErrorMessage("Camera access is required to start the interview. Please allow camera permissions and try again.");
+      setErrorMessage("Camera and microphone access are required to start the interview. Please allow both permissions and try again.");
       setState("error");
     }
   }
