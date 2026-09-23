@@ -298,6 +298,20 @@ export default function InterviewsPage() {
                   />
                 </div>
               )}
+              
+              {/* Video Recording */}
+              {selected.video_recording_url && (
+                <div>
+                  <div className="text-xs font-semibold text-ink-2 uppercase tracking-wide mb-2">
+                    Video Recording
+                  </div>
+                  <video
+                    controls
+                    src={selected.video_recording_url}
+                    className="w-full rounded-lg"
+                  />
+                </div>
+              )}
 
               {/* AI Summary */}
               {selected.ai_report && (

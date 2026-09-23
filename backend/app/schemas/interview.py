@@ -34,6 +34,7 @@ class InterviewRecruiterResponse(BaseModel):
     status: InterviewStatus
     transcript: str | None
     recording_url: str | None = Field(default=None, validation_alias="recording_storage_path")
+    video_recording_url: str | None = None
     tech_score: int | None
     communication_score: int | None
     overall_score: int | None

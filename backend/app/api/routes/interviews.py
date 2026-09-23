@@ -256,6 +256,7 @@ def _to_recruiter_response(
         status=interview.status,
         transcript=interview.transcript,
         recording_url=(interview_service.get_vapi_recording_url(interview.vapi_call_id) if include_recording else None),
+        video_recording_url=(interview_service.get_vapi_recording_url(interview.vapi_call_id, kind="video") if include_recording else None),
         tech_score=interview.tech_score,
         communication_score=interview.communication_score,
         overall_score=interview.overall_score,

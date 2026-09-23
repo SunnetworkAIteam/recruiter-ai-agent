@@ -76,6 +76,7 @@ export interface InterviewDetail {
   transcript: string | null;
   ai_report: string | null;
   recording_url: string | null;
+  video_recording_url: string | null;
   candidate_name: string | null;
   job_title: string | null;
   violation_count: number;
