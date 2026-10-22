@@ -79,7 +79,7 @@ export default function InterviewsPage() {
   const [outcomeFilter, setOutcomeFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<InterviewDetail | null>(null);
-  const [violations, setViolations] = useState<ViolationEntry[] | null>(null);
+  const [, setViolations] = useState<ViolationEntry[] | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
