@@ -6,17 +6,20 @@ import { useApi } from "@/lib/useApi";
 import { ApiError } from "@/lib/api";
 import type { Job } from "@/types";
 
-interface CreateJobModalProps {
+interface JobFormModalProps {
+  job?: Job;                      // pass an existing job to edit it; omit to create
   onClose: () => void;
-  onCreated: (job: Job) => void;
+  onSaved: (job: Job) => void;    // renamed from onCreated — fires on create OR update
 }
 
-export function CreateJobModal({ onClose, onCreated }: CreateJobModalProps) {
+export function JobFormModal({ job, onClose, onSaved }: JobFormModalProps) {
   const { call } = useApi();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [requiredSkills, setRequiredSkills] = useState("");
-  const [minYears, setMinYears] = useState(0);
+  const isEditing = Boolean(job);
+
+  const [title, setTitle] = useState(job?.title ?? "");
+  const [description, setDescription] = useState(job?.description ?? "");
+  const [requiredSkills, setRequiredSkills] = useState(job?.required_skills ?? "");
+  const [minYears, setMinYears] = useState(job?.min_years_experience ?? 0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,18 +28,18 @@ export function CreateJobModal({ onClose, onCreated }: CreateJobModalProps) {
     setSubmitting(true);
     setError(null);
     try {
-      const job = await call<Job>("/jobs", {
-        method: "POST",
-        body: {
-          title,
-          description,
-          required_skills: requiredSkills,
-          min_years_experience: minYears,
-        },
-      });
-      onCreated(job);
+      const body = {
+        title,
+        description,
+        required_skills: requiredSkills,
+        min_years_experience: minYears,
+      };
+      const saved = isEditing
+        ? await call<Job>(`/jobs/${job!.id}`, { method: "PATCH", body })
+        : await call<Job>("/jobs", { method: "POST", body });
+      onSaved(saved);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to create job. Please try again.");
+      setError(err instanceof ApiError ? err.message : `Failed to ${isEditing ? "update" : "create"} job. Please try again.`);
     } finally {
       setSubmitting(false);
     }
@@ -46,7 +49,7 @@ export function CreateJobModal({ onClose, onCreated }: CreateJobModalProps) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-sm font-bold text-ink">New Job Posting</h2>
+          <h2 className="text-sm font-bold text-ink">{isEditing ? "Edit Job Posting" : "New Job Posting"}</h2>
           <button onClick={onClose} aria-label="Close" className="text-ink-2 hover:text-ink">
             <X className="w-4 h-4" />
           </button>
@@ -89,6 +92,13 @@ export function CreateJobModal({ onClose, onCreated }: CreateJobModalProps) {
               placeholder="e.g. Python, FastAPI, PostgreSQL, distributed systems"
               className="input-field"
             />
+            {isEditing && (job?.candidate_count ?? 0) > 0 && (
+              <p className="text-xs text-ink-3 mt-1">
+                This job has {job!.candidate_count} candidate{job!.candidate_count === 1 ? "" : "s"} already screened.
+                Changing skills here won&apos;t rescore existing candidates or affect interviews already completed —
+                it only affects future scoring and interviews.
+              </p>
+            )}
           </div>
 
           <div>
@@ -111,7 +121,7 @@ export function CreateJobModal({ onClose, onCreated }: CreateJobModalProps) {
             </button>
             <button type="submit" disabled={submitting} className="btn-primary">
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              Create Job
+              {isEditing ? "Save Changes" : "Create Job"}
             </button>
           </div>
         </form>

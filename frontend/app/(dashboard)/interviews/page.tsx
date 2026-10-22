@@ -7,6 +7,13 @@ import { useApi } from "@/lib/useApi";
 import { ApiError } from "@/lib/api";
 import type { InterviewDetail } from "@/types";
 
+interface ViolationEntry {
+  event_type: string;
+  offset_ms: number;
+  occurred_at: string;
+  score_deducted: number;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Scheduled",
   in_progress: "In Progress",
@@ -14,6 +21,38 @@ const STATUS_LABELS: Record<string, string> = {
   abandoned: "Abandoned",
   failed: "Failed",
 };
+
+
+const CATEGORY_LABELS: Record<string, string> = {
+  completed: "Completed",
+  incomplete: "Incomplete",
+  violation: "Violated",
+  silence_timeout: "No Response",
+  missed: "Missed",
+  system_error: "System Error",
+};
+
+const CATEGORY_STYLES: Record<string, string> = {
+  completed: "bg-teal-dim text-teal",
+  incomplete: "bg-amber-dim text-amber",
+  violation: "bg-danger-dim text-danger",
+  silence_timeout: "bg-amber-dim text-amber",
+  missed: "bg-surface-3 text-ink-2",
+  system_error: "bg-danger-dim text-danger",
+};
+
+function getDisplayStatus(iv: InterviewDetail): { label: string; style: string } {
+  if (iv.status === "completed" && iv.end_reason_category) {
+    return {
+      label: CATEGORY_LABELS[iv.end_reason_category] ?? STATUS_LABELS[iv.status],
+      style: CATEGORY_STYLES[iv.end_reason_category] ?? STATUS_STYLES[iv.status],
+    };
+  }
+  return {
+    label: STATUS_LABELS[iv.status] ?? iv.status,
+    style: STATUS_STYLES[iv.status] ?? "bg-surface-3 text-ink-2",
+  };
+}
 
 const STATUS_STYLES: Record<string, string> = {
   scheduled: "bg-info-dim text-info",
@@ -37,8 +76,10 @@ export default function InterviewsPage() {
   const [interviews, setInterviews] = useState<InterviewDetail[] | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [outcomeFilter, setOutcomeFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<InterviewDetail | null>(null);
+  const [violations, setViolations] = useState<ViolationEntry[] | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -73,14 +114,21 @@ export default function InterviewsPage() {
   
   async function openReport(iv: InterviewDetail) {
     setSelected(iv);
+    setViolations(null);
     try {
       const full = await call<InterviewDetail>(`/interviews/${iv.id}`);
       setSelected(full);
     } catch {
       // keep showing what we already have; recording just won't be available
     }
+    try {
+      const v = await call<ViolationEntry[]>(`/interviews/${iv.id}/violations`);
+      setViolations(v);
+    } catch {
+      setViolations([]);
+    }
   }
-
+  
   useEffect(refresh, [call]);
   const roleOptions = interviews
     ? (Array.from(new Set(interviews.map((iv) => iv.job_title).filter(Boolean))) as string[])
@@ -89,7 +137,8 @@ export default function InterviewsPage() {
   const filteredInterviews = interviews?.filter((iv) => {
     const statusMatch = statusFilter === "all" || iv.status === statusFilter;
     const roleMatch = roleFilter === "all" || iv.job_title === roleFilter;
-    return statusMatch && roleMatch;
+    const outcomeMatch = outcomeFilter === "all" || iv.end_reason_category === outcomeFilter;
+    return statusMatch && roleMatch && outcomeMatch;
   }) ?? null;
   return (
     <>
@@ -149,6 +198,16 @@ export default function InterviewsPage() {
                 <option key={role} value={role}>{role}</option>
               ))}
             </select>
+            <select
+              value={outcomeFilter}
+              onChange={(e) => setOutcomeFilter(e.target.value)}
+              className="input-field w-auto text-sm"
+            >
+              <option value="all">All Outcomes</option>
+              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -176,9 +235,9 @@ export default function InterviewsPage() {
                   >                    
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_STYLES[iv.status]}`}
+                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${getDisplayStatus(iv).style}`}
                       >
-                        {STATUS_LABELS[iv.status]}
+                        {getDisplayStatus(iv).label}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-ink font-medium">

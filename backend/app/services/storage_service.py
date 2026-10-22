@@ -119,4 +119,18 @@ def get_signed_recording_url(storage_path: str, expires_in_seconds: int = 300) -
         logger.error("signed_url_generation_failed", storage_path=storage_path, error=str(exc))
         return None
 
+def upload_recording_bytes(storage_path: str, content: bytes, content_type: str) -> str:
+    client = get_supabase_client()
+    client.storage.from_(settings.SUPABASE_STORAGE_BUCKET_RECORDINGS).upload(
+        storage_path, content, {"content-type": content_type, "upsert": "true"}
+    )
+    return storage_path
 
+
+def recording_files(folder: str) -> list[str]:
+    try:
+        client = get_supabase_client()
+        items = client.storage.from_(settings.SUPABASE_STORAGE_BUCKET_RECORDINGS).list(folder)
+        return [i["name"] for i in items]
+    except Exception:
+        return []

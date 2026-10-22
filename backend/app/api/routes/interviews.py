@@ -32,6 +32,7 @@ THREE THINGS THAT MATTER MOST IN THIS FILE:
 """
 
 import hmac
+import threading
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request, status
@@ -248,6 +249,7 @@ def _to_recruiter_response(
             .count()
             > 0
         )
+    rec_audio, rec_video = interview_service.get_playable_recording_urls(interview) if include_recording else (None, None)
     return InterviewRecruiterResponse(
         id=interview.id,
         candidate_id=interview.candidate_id,
@@ -255,8 +257,8 @@ def _to_recruiter_response(
         job_title=job_title,
         status=interview.status,
         transcript=interview.transcript,
-        recording_url=(interview_service.get_vapi_recording_url(interview.vapi_call_id) if include_recording else None),
-        video_recording_url=(interview_service.get_vapi_recording_url(interview.vapi_call_id, kind="video") if include_recording else None),
+        recording_url=rec_audio,
+        video_recording_url=rec_video,
         tech_score=interview.tech_score,
         communication_score=interview.communication_score,
         overall_score=interview.overall_score,
@@ -442,6 +444,22 @@ def log_interview_event(request: Request, interview_id: str, payload: InterviewE
     }
 
 
+def _archive_in_background(interview_id, vapi_call_id):
+    def run():
+        paths = interview_service.archive_vapi_recordings(interview_id, vapi_call_id)
+        if not paths.get("audio"):
+            return
+        gen = get_db()
+        db = next(gen)
+        try:
+            iv = db.get(Interview, interview_id)
+            if iv:
+                iv.recording_storage_path = paths["audio"]
+                db.commit()
+        finally:
+            gen.close()
+    threading.Thread(target=run, daemon=True).start()
+
 def _extract_recording_url(payload: dict) -> str | None:
     """Vapi's recording URL has moved location before (their own changelog
     shows deprecation) — check every known shape defensively."""
@@ -502,10 +520,12 @@ async def vapi_webhook(request: Request, db: Session = Depends(get_db)):
 
     transcript = message.get("transcript") or message.get("artifact", {}).get("transcript") or ""
     recording_url = _extract_recording_url(message)
+    ended_reason = message.get("endedReason")
     interview_service.process_completed_transcript(
-        db, interview, transcript, vapi_call_id=vapi_call_id, recording_url=recording_url
+        db, interview, transcript, vapi_call_id=vapi_call_id, recording_url=recording_url, vapi_ended_reason=ended_reason
     )
     db.commit()
+    _archive_in_background(interview.id, vapi_call_id)
 
     return {"received": True, "handled": True}
 
@@ -571,8 +591,9 @@ def sync_interview_from_vapi(
 
     transcript = call_data.get("transcript") or (call_data.get("artifact") or {}).get("transcript") or ""
     recording_url = _extract_recording_url(call_data)
+    ended_reason = call_data.get("endedReason")
     interview_service.process_completed_transcript(
-        db, interview, transcript, vapi_call_id=interview.vapi_call_id, recording_url=recording_url
+        db, interview, transcript, vapi_call_id=interview.vapi_call_id, recording_url=recording_url, vapi_ended_reason=ended_reason
     )
     db.commit()
     return {"synced": True}

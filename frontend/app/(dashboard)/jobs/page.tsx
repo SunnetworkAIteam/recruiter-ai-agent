@@ -5,7 +5,7 @@ import { Plus, Loader2, AlertTriangle, Copy, Check, Users, Trash2 } from "lucide
 import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { JobStatusBadge } from "@/components/ui/Badge";
-import { CreateJobModal } from "@/components/jobs/CreateJobModal";
+import { JobFormModal } from "@/components/jobs/CreateJobModal";
 import { useApi } from "@/lib/useApi";
 import { ApiError } from "@/lib/api";
 import type { Job } from "@/types";
@@ -167,9 +167,9 @@ export default function JobsPage() {
       </main>
 
       {modalOpen && (
-        <CreateJobModal
+        <JobFormModal
           onClose={() => setModalOpen(false)}
-          onCreated={(job) => {
+          onSaved={(job) => {
             setJobs((prev) => (prev ? [job, ...prev] : [job]));
             setModalOpen(false);
           }}

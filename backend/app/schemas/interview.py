@@ -25,7 +25,6 @@ class InterviewPublicResponse(BaseModel):
     vapi_assistant_id: str
     selfie_url: str | None = None
 
-
 class InterviewRecruiterResponse(BaseModel):
     id: str
     candidate_id: str
@@ -42,9 +41,10 @@ class InterviewRecruiterResponse(BaseModel):
     identity_mismatch_flagged: bool = False
     score_deducted: int = 0
     ai_report: str | None
+    end_reason_raw: str | None = None
+    end_reason_category: str | None = None
 
     model_config = {"from_attributes": True, "populate_by_name": True}
-
 
 class InterviewViolationEntry(BaseModel):
     event_type: str

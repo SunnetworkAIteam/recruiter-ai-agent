@@ -67,6 +67,7 @@ export interface InterviewPublic {
   selfie_url: string | null;
 }
 
+
 export interface InterviewDetail {
   id: string;
   status: string;
@@ -82,4 +83,6 @@ export interface InterviewDetail {
   violation_count: number;
   identity_mismatch_flagged: boolean;
   created_at: string;
+  end_reason_raw: string | null;
+  end_reason_category: string | null;
 }

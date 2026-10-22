@@ -15,8 +15,11 @@ WHY this is its own service instead of living inline in routes:
   path — consistent results no matter which route got us here.
 """
 
+import time
+import httpx
+from app.config import settings
+from app.services import storage_service
 from datetime import datetime, timedelta, timezone
-
 from app.config import get_settings
 from app.logging_config import get_logger
 from app.models.candidate import Candidate, CandidateStage
@@ -58,9 +61,26 @@ def schedule_interview_for_candidate(db, candidate: Candidate, job: Job, *, fron
 
     return interview
 
+def _classify_end_reason(vapi_ended_reason: str | None, transcript_text: str | None, violation_count: int) -> tuple[str, str]:
+    """Buckets a finished interview into a status category for the dashboard."""
+    raw = vapi_ended_reason or "unknown"
+    transcript_length = len(transcript_text or "")
 
+    if violation_count >= 3:
+        return "violation", raw
+    if vapi_ended_reason == "silence-timed-out":
+        return "silence_timeout", raw
+    if vapi_ended_reason in ("pipeline-error", "assistant-not-found", "pipeline-error-openai-llm-failed", "vonage-disconnected"):
+        return "system_error", raw
+    if transcript_length < 80:
+        return "missed", raw
+    if vapi_ended_reason == "customer-ended-call" and transcript_length < 400:
+        return "incomplete", raw
+    if vapi_ended_reason in ("assistant-ended-call", "customer-ended-call"):
+        return "completed", raw
+    return "incomplete", raw
 
-def process_completed_transcript(db, interview: Interview, transcript: str, vapi_call_id: str | None = None, recording_url: str | None = None) -> None:
+def process_completed_transcript(db, interview: Interview, transcript: str, vapi_call_id: str | None = None, recording_url: str | None = None, vapi_ended_reason: str | None = None) -> None:
     """
     Saves a transcript, scores it via Claude, advances the candidate's
     stage, and sends the follow-up email. Shared by the webhook handler
@@ -137,6 +157,9 @@ def process_completed_transcript(db, interview: Interview, transcript: str, vapi
     if violation_count > 0 and interview.overall_score is not None:
         deduction = min(violation_count, settings.MAX_INTEGRITY_VIOLATIONS) * settings.VIOLATION_SCORE_DEDUCTION
         interview.overall_score = max(0, interview.overall_score - deduction)
+    end_category, end_raw = _classify_end_reason(vapi_ended_reason, transcript, violation_count)
+    interview.end_reason_raw = end_raw
+    interview.end_reason_category = end_category
 
     # Auto-route the candidate based on final (post-deduction) overall
     # score. Recruiters can still change this manually afterward via
@@ -368,4 +391,54 @@ async def background_sync_loop() -> None:
         finally:
             db.close()
 
-    
+def archive_vapi_recordings(interview_id, vapi_call_id: str, attempts: int = 6) -> dict:
+    """Copy Vapi audio/video into our own bucket (Vapi deletes them after 14 days)."""
+    from app.config import get_settings
+    from app.services import storage_service
+    s = get_settings()
+    headers = {"Authorization": f"Bearer {s.VAPI_API_KEY}"}
+    for i in range(attempts):
+        try:
+            r = httpx.get(f"{s.VAPI_API_BASE_URL}/call/{vapi_call_id}", headers=headers, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            art = data.get("artifact") or {}
+            audio = art.get("recordingUrl") or data.get("recordingUrl") or art.get("stereoRecordingUrl")
+            video = art.get("videoRecordingUrl")
+            if audio or video:
+                out = {}
+                for key, url, name, ctype in (
+                    ("audio", audio, "audio.wav", "audio/wav"),
+                    ("video", video, "video.mp4", "video/mp4"),
+                ):
+                    if not url:
+                        continue
+                    try:
+                        f = httpx.get(url, timeout=120, follow_redirects=True)
+                        f.raise_for_status()
+                        out[key] = storage_service.upload_recording_bytes(f"{interview_id}/{name}", f.content, ctype)
+                    except Exception as e:
+                        print(f"[archive] {key} failed for {interview_id}: {e}")
+                return out
+        except Exception as e:
+            print(f"[archive] attempt {i+1} failed for {interview_id}: {e}")
+        time.sleep(10)
+    return {}
+
+
+def get_playable_recording_urls(interview):
+    """(audio_url, video_url). Prefer our own bucket; fall back to Vapi for old rows."""
+    from app.services import storage_service
+    path = interview.recording_storage_path
+    if path and not path.startswith("http"):
+        audio = storage_service.get_signed_recording_url(path)
+        video = None
+        if "video.mp4" in storage_service.recording_files(str(interview.id)):
+            video = storage_service.get_signed_recording_url(f"{interview.id}/video.mp4")
+        return audio, video
+    if not interview.vapi_call_id:
+        return None, None
+    return (
+        get_vapi_recording_url(interview.vapi_call_id),
+        get_vapi_recording_url(interview.vapi_call_id, kind="video"),
+    )

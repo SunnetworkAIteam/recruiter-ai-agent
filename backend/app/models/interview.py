@@ -28,6 +28,10 @@ class Interview(Base, TimestampMixin):
     status: Mapped[InterviewStatus] = mapped_column(
         Enum(InterviewStatus, name="interview_status"), nullable=False, default=InterviewStatus.SCHEDULED
     )
+
+    end_reason_raw: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    end_reason_category: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    
     # Link tampering / reuse defense: an interview link is valid for a
     # limited window and can only be started once. See interviews.py
     # `_ensure_interview_is_startable` for enforcement — this column
