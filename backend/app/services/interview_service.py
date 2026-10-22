@@ -17,7 +17,6 @@ WHY this is its own service instead of living inline in routes:
 
 import time
 import httpx
-from app.config import settings
 from app.services import storage_service
 from datetime import datetime, timedelta, timezone
 from app.config import get_settings
